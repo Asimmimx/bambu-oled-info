@@ -61,6 +61,7 @@ Other models should work in principle, because the status protocol is the same, 
   - **Sound & melody studio**: adjust buzzer volume (`1-100%`), test sounds live, choose between 4 buzzer modes (including **Active Buzzer Volume-Stepped Melody** and **Chiptune Modulation** so even a fixed-tone active buzzer can play expressive melodies), pick from 7 finish melodies and 5 error melodies, or compose custom melodies (`freq:ms@vol%` or `@vol%:ms`) without re-flashing.
   - **Display, knob & timers**: adjust OLED brightness (contrast), flip 180°, invert colors, reverse knob direction, set step sensitivity, timings and time zone live.
   - **Wi-Fi, printers & Bambu Cloud**: manage up to 8 LAN/Cloud printers and update the Bambu Cloud token in NVS flash.
+  - The panel is in **English** by default; the language menu in the header switches it to **Turkish** (remembered by the browser).
 - **Demo build** with fake printers to preview every screen without any printer.
 - Two small Python tools to find your printers and read their access codes.
 
@@ -405,6 +406,7 @@ The fields used (all under `print`): `gcode_state`, `mc_percent`, `mc_remaining_
 - **Finish clock.** `now + time left`, using NTP and your `TIMEZONE`.
 - **Back-off.** An unreachable printer is retried every 60 s (8 s while it is on screen). Rejected credentials are retried at most once a minute, and looking at such a printer does not bring the retry forward.
 - **TLS.** Printers use self-signed certificates on your LAN, which are accepted as they are. The cloud server's certificate is checked against the built-in Mozilla CA bundle before the token is sent.
+- **Job names.** The name is the job name from `subtask_name` (or the file name from `gcode_file`). Jobs sent from Bambu Studio report the *project* name, which is the same for every plate of one project, so the plate number is added: `Organizer (plate 2)`.
 - **File names** are converted to ASCII for the display font: Turkish letters are folded (ğ → g) and anything unsupported becomes `?`.
 - **Memory.** About 100 KB of heap stays free while connected (minimum seen: 84 KB); the firmware is about 1.3 MB in a 3 MB partition (no OTA).
 - **Screen sleep.** If no printer is printing, paused, preparing or in error for 5 minutes, the screen turns off; a knob touch or new activity wakes it.

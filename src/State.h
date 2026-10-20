@@ -32,7 +32,10 @@ struct PrinterStatus {
   char trayType[16][8] = {};  // filament type per AMS slot ("PLA"...)
   char extType[8] = "";       // filament type of the external spool
   char nozzleDia[6] = "";     // "0.4"
-  char file[40] = "";         // subtask_name (falls back to gcode_file)
+  char file[40] = "";         // what the screens show: job name (+ plate), composed from the two below
+  char task[40] = "";         // subtask_name: the job/project name (the same for every plate of one project)
+  char gcode[40] = "";        // gcode_file without path/extension, "" when it is just "plate_N.gcode"
+  int8_t plate = 0;           // N of ".../plate_N.gcode", 0 unknown
   uint32_t updatedMs = 0;     // millis() of the last report, 0 = never
   uint32_t finishedAtMs = 0;  // millis() when a finish was seen live, 0 = not seen live (see Ui.cpp snapshot())
 

@@ -20,11 +20,11 @@ WebServer g_server(80);
 uint32_t g_restartAt = 0;
 
 const char kIndexHtml[] = R"rawliteral(<!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bambu OLED Monitor - Kontrol Paneli</title>
+<title>Bambu OLED Monitor - Control Panel</title>
 <style>
 :root {
   --bg: #0f1215;
@@ -253,6 +253,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .status-err { background: rgba(229,83,75,0.16); border: 1px solid var(--danger); color: #ff8b85; }
 .hidden { display: none !important; }
 .actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.lang-sel { width: auto; padding: 3px 8px; font-size: 0.76rem; border-radius: 999px; background: var(--card); color: var(--text); cursor: pointer; }
 </style>
 </head>
 <body>
@@ -263,33 +264,37 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
       <span class="badge" id="ipBadge">IP: ...</span>
       <span class="badge" id="rssiBadge">Wi-Fi: ...</span>
       <span class="badge" id="heapBadge">RAM: ...</span>
-      <span class="badge" id="upBadge">Süre: ...</span>
+      <span class="badge" id="upBadge">Uptime: ...</span>
+      <select id="langSel" class="lang-sel" onchange="setLang(this.value)" title="Language / Dil">
+        <option value="en">🌐 English</option>
+        <option value="tr">🌐 Türkçe</option>
+      </select>
     </div>
   </header>
 
   <div id="statusBanner"></div>
 
   <div class="tabs">
-    <button type="button" class="tab-btn active" onclick="openTab('tab-live', this)">📊 Canlı Durum &amp; Ekran</button>
-    <button type="button" class="tab-btn" onclick="openTab('tab-sound', this)">🔊 Ses &amp; Melodi Stüdyosu</button>
-    <button type="button" class="tab-btn" onclick="openTab('tab-display', this)">🖥️ Ekran, Düğme &amp; Saat</button>
-    <button type="button" class="tab-btn" onclick="openTab('tab-network', this)">🖨️ Yazıcılar &amp; Ağ</button>
+    <button type="button" class="tab-btn active" onclick="openTab('tab-live', this)" data-tr="📊 Canlı Durum &amp; Ekran">📊 Live Status &amp; Display</button>
+    <button type="button" class="tab-btn" onclick="openTab('tab-sound', this)" data-tr="🔊 Ses &amp; Melodi Stüdyosu">🔊 Sound &amp; Melody Studio</button>
+    <button type="button" class="tab-btn" onclick="openTab('tab-display', this)" data-tr="🖥️ Ekran, Düğme &amp; Saat">🖥️ Display, Knob &amp; Clock</button>
+    <button type="button" class="tab-btn" onclick="openTab('tab-network', this)" data-tr="🖨️ Yazıcılar &amp; Ağ">🖨️ Printers &amp; Network</button>
   </div>
 
   <!-- TAB 1: LIVE STATUS & REMOTE OLED CONTROL -->
   <div id="tab-live" class="tab-pane active">
     <div class="card">
       <h2>
-        <span>Uzaktan OLED Ekran Kontrolü</span>
+        <span data-tr="Uzaktan OLED Ekran Kontrolü">Remote OLED Control</span>
         <div class="btn-group">
           <button type="button" class="btn-sm" id="btnAutoToggle" onclick="uiCmd({autoMode: !liveState.autoMode})">Auto: ...</button>
-          <button type="button" class="btn-sm" id="btnMuteQuick" onclick="soundCmd({action:'mute', muted: !liveState.muted})">Ses: ...</button>
-          <button type="button" class="btn-sm" id="btnSleepToggle" onclick="uiCmd({sleep: !liveState.sleeping})">Ekran: ...</button>
+          <button type="button" class="btn-sm" id="btnMuteQuick" onclick="soundCmd({action:'mute', muted: !liveState.muted})">Sound: ...</button>
+          <button type="button" class="btn-sm" id="btnSleepToggle" onclick="uiCmd({sleep: !liveState.sleeping})">Screen: ...</button>
         </div>
       </h2>
       <div class="grid">
         <div>
-          <label>Aktif OLED Sayfası (Tıkla &amp; Değiştir)</label>
+          <label data-tr="Aktif OLED Sayfası (Tıkla &amp; Değiştir)">Active OLED page (click to switch)</label>
           <div class="btn-group" style="margin-top:4px">
             <button type="button" id="vBtn0" onclick="uiCmd({view:0})">1. Progress</button>
             <button type="button" id="vBtn1" onclick="uiCmd({view:1})">2. Overview</button>
@@ -298,10 +303,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
           </div>
         </div>
         <div>
-          <label>OLED Ekrana Anlık Mesaj Gönder (Toast)</label>
+          <label data-tr="OLED Ekrana Anlık Mesaj Gönder (Toast)">Send a message to the OLED (toast)</label>
           <div style="display:flex;gap:6px">
-            <input type="text" id="toastInput" maxlength="21" placeholder="Örn: Merhaba! (max 21 kr)">
-            <button type="button" class="btn-info" onclick="sendToast()">Gönder</button>
+            <input type="text" id="toastInput" maxlength="21" placeholder="e.g. Hello! (max 21 chars)" data-tr-ph="Örn: Merhaba! (max 21 kr)">
+            <button type="button" class="btn-info" onclick="sendToast()" data-tr="Gönder">Send</button>
           </div>
         </div>
       </div>
@@ -309,8 +314,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     <div class="card">
       <h2>
-        <span>Yazıcılar (OLED'de odaklamak için karta tıklayın)</span>
-        <button type="button" class="btn-sm" onclick="fetchStatus()">🔄 Yenile</button>
+        <span data-tr="Yazıcılar (OLED'de odaklamak için karta tıklayın)">Printers (click a card to focus it on the OLED)</span>
+        <button type="button" class="btn-sm" onclick="fetchStatus()" data-tr="🔄 Yenile">🔄 Refresh</button>
       </h2>
       <div id="liveGrid" class="grid-3"></div>
     </div>
@@ -320,137 +325,137 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   <div id="tab-sound" class="tab-pane">
     <div class="card">
       <h2>
-        <span>Ses &amp; Buzzer Kontrolleri</span>
+        <span data-tr="Ses &amp; Buzzer Kontrolleri">Sound &amp; Buzzer Controls</span>
         <div class="btn-group">
-          <button type="button" class="btn-info btn-sm" onclick="soundCmd({action:'test', sound:'chirp'})">🔊 Açılış Sesi Test</button>
-          <button type="button" class="btn-danger btn-sm" onclick="soundCmd({action:'stop'})">⏹ Sesi Durdur</button>
+          <button type="button" class="btn-info btn-sm" onclick="soundCmd({action:'test', sound:'chirp'})" data-tr="🔊 Açılış Sesi Test">🔊 Test Startup Chirp</button>
+          <button type="button" class="btn-danger btn-sm" onclick="soundCmd({action:'stop'})" data-tr="⏹ Sesi Durdur">⏹ Stop Sound</button>
         </div>
       </h2>
       <div class="grid">
         <div class="switch-row">
           <div>
-            <span>Buzzer Sesi Açık</span>
-            <small>Kapatıldığında bitiş ve hata alarmları çalmaz</small>
+            <span data-tr="Buzzer Sesi Açık">Buzzer Sound On</span>
+            <small data-tr="Kapatıldığında bitiş ve hata alarmları çalmaz">When off, finish and error alarms stay silent</small>
           </div>
           <input type="checkbox" class="toggle" id="s_enableSound" onchange="saveLiveSettings()">
         </div>
         <div class="switch-row">
           <div>
-            <span>Açılışta Bip Sesi (Startup Chirp)</span>
-            <small>Cihaz ilk elektriğe takıldığında kısa bip verir</small>
+            <span data-tr="Açılışta Bip Sesi (Startup Chirp)">Startup Chirp</span>
+            <small data-tr="Cihaz ilk elektriğe takıldığında kısa bip verir">Short beep when the device powers up</small>
           </div>
           <input type="checkbox" class="toggle" id="s_startupChirp" onchange="saveLiveSettings()">
         </div>
         <div style="grid-column: 1 / -1">
-          <label for="s_buzzerVolume">Buzzer Ses Seviyesi (Volume): <b id="volVal">100</b>%</label>
+          <label for="s_buzzerVolume"><span data-tr="Buzzer Ses Seviyesi (Volume)">Buzzer Volume</span>: <b id="volVal">100</b>%</label>
           <div style="display:flex;gap:10px;align-items:center">
             <input type="range" id="s_buzzerVolume" min="1" max="100" value="100"
                    oninput="document.getElementById('volVal').textContent=this.value"
                    onchange="saveLiveSettings()">
             <button type="button" class="btn-info btn-sm" style="white-space:nowrap"
-                    onclick="soundCmd({action:'test',sound:'chirp',volume:parseInt(document.getElementById('s_buzzerVolume').value,10)})">🔊 Seviyeyi Dene</button>
+                    onclick="soundCmd({action:'test',sound:'chirp',volume:parseInt(document.getElementById('s_buzzerVolume').value,10)})" data-tr="🔊 Seviyeyi Dene">🔊 Try Level</button>
           </div>
         </div>
         <div>
-          <label for="s_buzzerMode">Buzzer Çalışma &amp; Melodi Modu</label>
+          <label for="s_buzzerMode" data-tr="Buzzer Çalışma &amp; Melodi Modu">Buzzer Type &amp; Melody Mode</label>
           <select id="s_buzzerMode" onchange="saveLiveSettings()">
-            <option value="2">✨ Aktif Buzzer - Ses Seviyesi Melodili (Önerilen)</option>
-            <option value="3">🕹️ Aktif Buzzer - Chiptune Ton Modülasyonlu</option>
-            <option value="0">🔔 Aktif Buzzer - Klasik Sabit (Yalnızca Ritim)</option>
-            <option value="1">🎼 Pasif Buzzer / Piezo (Gerçek Frekans Notaları)</option>
+            <option value="2" data-tr="✨ Aktif Buzzer - Ses Seviyesi Melodili (Önerilen)">✨ Active Buzzer - Volume-Stepped Melody (Recommended)</option>
+            <option value="3" data-tr="🕹️ Aktif Buzzer - Chiptune Ton Modülasyonlu">🕹️ Active Buzzer - Chiptune Tone Modulation</option>
+            <option value="0" data-tr="🔔 Aktif Buzzer - Klasik Sabit (Yalnızca Ritim)">🔔 Active Buzzer - Classic Fixed (Rhythm Only)</option>
+            <option value="1" data-tr="🎼 Pasif Buzzer / Piezo (Gerçek Frekans Notaları)">🎼 Passive Buzzer / Piezo (Real Frequency Notes)</option>
           </select>
         </div>
         <div>
-          <label for="s_buzzerActiveLow">Sinyal Polaritesi (Tetikleme Yönü)</label>
+          <label for="s_buzzerActiveLow" data-tr="Sinyal Polaritesi (Tetikleme Yönü)">Signal Polarity (Trigger Level)</label>
           <select id="s_buzzerActiveLow" onchange="saveLiveSettings()">
-            <option value="0">Normal (HIGH = Ses Verir)</option>
-            <option value="1">Ters / Active-LOW (LOW = Ses Verir, 3-pin modüller)</option>
+            <option value="0" data-tr="Normal (HIGH = Ses Verir)">Normal (HIGH = sound)</option>
+            <option value="1" data-tr="Ters / Active-LOW (LOW = Ses Verir, 3-pin modüller)">Inverted / Active-LOW (LOW = sound, 3-pin modules)</option>
           </select>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>🎵 Baskı Bittiğinde Çalacak Melodi (Finish Sound)</h2>
-      <p class="hint" style="margin-bottom:10px">Aktif buzzer kullanırken <b>Ses Seviyesi Melodili</b> modu seçiliyse her adım farklı ses şiddetinde (<code>%18 → %100</code>) çalarak yükselen/alçalan melodi hissi verir.</p>
+      <h2 data-tr="🎵 Baskı Bittiğinde Çalacak Melodi (Finish Sound)">🎵 Print Finished Melody</h2>
+      <p class="hint" style="margin-bottom:10px" data-tr="Aktif buzzer kullanırken <b>Ses Seviyesi Melodili</b> modu seçiliyse her adım farklı ses şiddetinde (<code>%18 → %100</code>) çalarak yükselen/alçalan melodi hissi verir.">With an active buzzer in <b>Volume-Stepped Melody</b> mode, every step plays at a different loudness (<code>18% → 100%</code>) to give a rising/falling melody feel.</p>
       <div class="grid">
         <div>
-          <label for="s_finishMelody">Bitiş Melodisi Seçimi</label>
+          <label for="s_finishMelody" data-tr="Bitiş Melodisi Seçimi">Finish Melody</label>
           <div style="display:flex;gap:8px">
             <select id="s_finishMelody" onchange="toggleCustomBoxes(); saveLiveSettings()">
-              <option value="0">1. Klasik Yükselen Kreşendo (%40 → %70 → %100)</option>
-              <option value="1">2. Zafer Fanfarı (%35 → %55 → %78 → %100)</option>
-              <option value="2">3. Kibar İkili Yankı (Yumuşak &amp; Güçlü Bip)</option>
-              <option value="3">4. Neşeli Merdiven (5 Kademeli Yükselen Ses)</option>
-              <option value="4">5. Yumuşak Dalga / Nefes (%18 → %100 → %22)</option>
-              <option value="5">6. Retro Coin &amp; Seviye Atlama (Dinamik Vurgulu)</option>
-              <option value="6">7. Atölye Uzun Alarm (3 Güçlü + Yankılı)</option>
-              <option value="7">8. Özel Melodi (Aşağıdan Ses Seviyeli Tasarla)</option>
+              <option value="0" data-tr="1. Klasik Yükselen Kreşendo (%40 → %70 → %100)">1. Classic Rising Crescendo (40% → 70% → 100%)</option>
+              <option value="1" data-tr="2. Zafer Fanfarı (%35 → %55 → %78 → %100)">2. Victory Fanfare (35% → 55% → 78% → 100%)</option>
+              <option value="2" data-tr="3. Kibar İkili Yankı (Yumuşak &amp; Güçlü Bip)">3. Gentle Double Echo (Soft &amp; Strong Beep)</option>
+              <option value="3" data-tr="4. Neşeli Merdiven (5 Kademeli Yükselen Ses)">4. Happy Staircase (5 Rising Steps)</option>
+              <option value="4" data-tr="5. Yumuşak Dalga / Nefes (%18 → %100 → %22)">5. Soft Wave / Breath (18% → 100% → 22%)</option>
+              <option value="5" data-tr="6. Retro Coin &amp; Seviye Atlama (Dinamik Vurgulu)">6. Retro Coin &amp; Level Up (Dynamic Accents)</option>
+              <option value="6" data-tr="7. Atölye Uzun Alarm (3 Güçlü + Yankılı)">7. Workshop Long Alarm (3 Strong + Echo)</option>
+              <option value="7" data-tr="8. Özel Melodi (Aşağıdan Ses Seviyeli Tasarla)">8. Custom Melody (Design Below)</option>
             </select>
-            <button type="button" class="btn-info" style="white-space:nowrap" onclick="testSelectedFinish()">🔊 Test Et</button>
+            <button type="button" class="btn-info" style="white-space:nowrap" onclick="testSelectedFinish()" data-tr="🔊 Test Et">🔊 Test</button>
           </div>
         </div>
       </div>
 
       <div id="customFinishBox" style="margin-top:14px">
-        <label for="s_customFinish">Özel Bitiş Melodisi (<code>@Ses%:SüreMs</code> veya <code>FrekansHz:SüreMs@Ses%, 0:SusMs</code>)</label>
+        <label for="s_customFinish" data-tr="Özel Bitiş Melodisi (<code>@Ses%:SüreMs</code> veya <code>FrekansHz:SüreMs@Ses%, 0:SusMs</code>)">Custom Finish Melody (<code>@Vol%:DurMs</code> or <code>FreqHz:DurMs@Vol%, 0:RestMs</code>)</label>
         <div style="display:flex;gap:8px">
           <input type="text" id="s_customFinish" maxlength="155" placeholder="523:90@25,0:30,659:90@45,0:30,784:90@65,0:30,1047:110@85,0:40,1319:260@100" onchange="saveLiveSettings()">
-          <button type="button" class="btn-info" style="white-space:nowrap" onclick="playCustomBox('s_customFinish')">▶ Dinle</button>
+          <button type="button" class="btn-info" style="white-space:nowrap" onclick="playCustomBox('s_customFinish')" data-tr="▶ Dinle">▶ Play</button>
         </div>
         <div class="note-chips">
-          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Ses &amp; Ton Kademesi Ekle:</span>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','659:110@50')">Pes / Yumuşak (%50)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','880:115@65')">Orta-Pes (%65)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1047:120@78')">Orta-Tiz (%78)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1319:140@90')">Güçlü (%90)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1760:240@100')">Tam Güç (%100)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','988:150@55')">Yankı (%55)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:45')">Kısa Sus (45ms)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:100')">Sus (100ms)</button>
-          <button type="button" class="note-chip btn-danger" onclick="document.getElementById('s_customFinish').value='';saveLiveSettings()">Temizle</button>
+          <span style="font-size:0.75rem;color:var(--muted);align-self:center" data-tr="Ses &amp; Ton Kademesi Ekle:">Add a step:</span>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','659:110@50')" data-tr="Pes / Yumuşak (%50)">Low / Soft (50%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','880:115@65')" data-tr="Orta-Pes (%65)">Mid-Low (65%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1047:120@78')" data-tr="Orta-Tiz (%78)">Mid-High (78%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1319:140@90')" data-tr="Güçlü (%90)">Strong (90%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1760:240@100')" data-tr="Tam Güç (%100)">Full Power (100%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','988:150@55')" data-tr="Yankı (%55)">Echo (55%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:45')" data-tr="Kısa Sus (45ms)">Short Rest (45ms)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:100')" data-tr="Sus (100ms)">Rest (100ms)</button>
+          <button type="button" class="note-chip btn-danger" onclick="document.getElementById('s_customFinish').value='';saveLiveSettings()" data-tr="Temizle">Clear</button>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>🚨 Hata / Başarısız Baskı Melodisi (Error / Failed Sound)</h2>
+      <h2 data-tr="🚨 Hata / Başarısız Baskı Melodisi (Error / Failed Sound)">🚨 Error / Failed Print Melody</h2>
       <div class="grid">
         <div>
-          <label for="s_failedMelody">Hata Melodisi Seçimi</label>
+          <label for="s_failedMelody" data-tr="Hata Melodisi Seçimi">Error Melody</label>
           <div style="display:flex;gap:8px">
             <select id="s_failedMelody" onchange="toggleCustomBoxes(); saveLiveSettings()">
-              <option value="0">1. İkili Siren (%100 Güçlü / %38 Kısık Karşılıklı)</option>
-              <option value="1">2. Acil SOS Mors Ritmi (... --- ... Vurgulu)</option>
-              <option value="2">3. Üzgün Alçalan Ses (%100 → %72 → %46 → %22 Sönümlü)</option>
-              <option value="3">4. Kalp Atışı / Nabız Alarmı (3x Küt-Küt Darbeli)</option>
-              <option value="4">5. Hızlı Kreşendo Uyarı (6 Kademe Yükselen Bip)</option>
-              <option value="5">6. Özel Hata Melodisi (Aşağıdan Ses Seviyeli Tasarla)</option>
+              <option value="0" data-tr="1. İkili Siren (%100 Güçlü / %38 Kısık Karşılıklı)">1. Two-Tone Siren (100% Strong / 38% Soft Alternating)</option>
+              <option value="1" data-tr="2. Acil SOS Mors Ritmi (... --- ... Vurgulu)">2. Emergency SOS Morse (... --- ... Accented)</option>
+              <option value="2" data-tr="3. Üzgün Alçalan Ses (%100 → %72 → %46 → %22 Sönümlü)">3. Sad Falling Tone (100% → 72% → 46% → 22% Fading)</option>
+              <option value="3" data-tr="4. Kalp Atışı / Nabız Alarmı (3x Küt-Küt Darbeli)">4. Heartbeat / Pulse Alarm (3x Thump-Thump)</option>
+              <option value="4" data-tr="5. Hızlı Kreşendo Uyarı (6 Kademe Yükselen Bip)">5. Fast Crescendo Warning (6 Rising Beeps)</option>
+              <option value="5" data-tr="6. Özel Hata Melodisi (Aşağıdan Ses Seviyeli Tasarla)">6. Custom Error Melody (Design Below)</option>
             </select>
-            <button type="button" class="btn-info" style="white-space:nowrap" onclick="testSelectedFailed()">🔊 Test Et</button>
+            <button type="button" class="btn-info" style="white-space:nowrap" onclick="testSelectedFailed()" data-tr="🔊 Test Et">🔊 Test</button>
           </div>
         </div>
       </div>
 
       <div id="customFailedBox" style="margin-top:14px">
-        <label for="s_customFailed">Özel Hata Melodisi (<code>@Ses%:SüreMs</code> veya <code>FrekansHz:SüreMs@Ses%, 0:SusMs</code>)</label>
+        <label for="s_customFailed" data-tr="Özel Hata Melodisi (<code>@Ses%:SüreMs</code> veya <code>FrekansHz:SüreMs@Ses%, 0:SusMs</code>)">Custom Error Melody (<code>@Vol%:DurMs</code> or <code>FreqHz:DurMs@Vol%, 0:RestMs</code>)</label>
         <div style="display:flex;gap:8px">
           <input type="text" id="s_customFailed" maxlength="155" placeholder="880:200@100,0:60,660:200@35,0:60,880:200@100,0:60,660:260@30" onchange="saveLiveSettings()">
-          <button type="button" class="btn-info" style="white-space:nowrap" onclick="playCustomBox('s_customFailed')">▶ Dinle</button>
+          <button type="button" class="btn-info" style="white-space:nowrap" onclick="playCustomBox('s_customFailed')" data-tr="▶ Dinle">▶ Play</button>
         </div>
         <div class="note-chips">
-          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Ses Kademesi Ekle:</span>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','880:180@100')">Vurgu (%100)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','660:180@40')">Karşılık (%40)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','440:280@22')">Sönüm (%22)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','1500:80@90')">Kısa Darbe (%90)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','0:70')">Sus (70ms)</button>
-          <button type="button" class="note-chip btn-danger" onclick="document.getElementById('s_customFailed').value='';saveLiveSettings()">Temizle</button>
+          <span style="font-size:0.75rem;color:var(--muted);align-self:center" data-tr="Ses Kademesi Ekle:">Add a step:</span>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','880:180@100')" data-tr="Vurgu (%100)">Accent (100%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','660:180@40')" data-tr="Karşılık (%40)">Answer (40%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','440:280@22')" data-tr="Sönüm (%22)">Fade (22%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','1500:80@90')" data-tr="Kısa Darbe (%90)">Short Hit (90%)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','0:70')" data-tr="Sus (70ms)">Rest (70ms)</button>
+          <button type="button" class="note-chip btn-danger" onclick="document.getElementById('s_customFailed').value='';saveLiveSettings()" data-tr="Temizle">Clear</button>
         </div>
       </div>
 
       <div class="actions">
-        <button type="button" class="btn-primary" onclick="saveLiveSettings(true)">💾 Ses &amp; Melodi Ayarlarını Kaydet</button>
+        <button type="button" class="btn-primary" onclick="saveLiveSettings(true)" data-tr="💾 Ses &amp; Melodi Ayarlarını Kaydet">💾 Save Sound &amp; Melody Settings</button>
       </div>
     </div>
   </div>
@@ -458,34 +463,34 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   <!-- TAB 3: DISPLAY, KNOB & TIME SETTINGS -->
   <div id="tab-display" class="tab-pane">
     <div class="card">
-      <h2>🖥️ OLED Ekran Görünümü</h2>
+      <h2 data-tr="🖥️ OLED Ekran Görünümü">🖥️ OLED Display</h2>
       <div class="grid">
         <div>
-          <label for="s_oledContrast">Ekran Parlaklığı (Contrast): <b id="contrastVal">255</b></label>
+          <label for="s_oledContrast"><span data-tr="Ekran Parlaklığı (Contrast)">Brightness (Contrast)</span>: <b id="contrastVal">255</b></label>
           <input type="range" id="s_oledContrast" min="1" max="255" value="255"
                  oninput="document.getElementById('contrastVal').textContent=this.value"
                  onchange="saveLiveSettings()">
         </div>
         <div>
-          <label for="s_defaultView">Açılışta İlk Gösterilecek Ekran</label>
+          <label for="s_defaultView" data-tr="Açılışta İlk Gösterilecek Ekran">Screen Shown at Startup</label>
           <select id="s_defaultView" onchange="saveLiveSettings()">
-            <option value="0">Progress (İlerleme Çubuğu &amp; Süre)</option>
-            <option value="1">Overview (6'lı Tablo Görünümü)</option>
-            <option value="2">Details (Sıcaklıklar, Katman &amp; Dosya Adı)</option>
-            <option value="3">Info (Hız, Fan, Filament &amp; Hata Kodu)</option>
+            <option value="0" data-tr="Progress (İlerleme Çubuğu &amp; Süre)">Progress (Progress Bar &amp; Time)</option>
+            <option value="1" data-tr="Overview (6'lı Tablo Görünümü)">Overview (6-Printer Grid)</option>
+            <option value="2" data-tr="Details (Sıcaklıklar, Katman &amp; Dosya Adı)">Details (Temperatures, Layer &amp; File Name)</option>
+            <option value="3" data-tr="Info (Hız, Fan, Filament &amp; Hata Kodu)">Info (Speed, Fan, Filament &amp; Error Code)</option>
           </select>
         </div>
         <div class="switch-row">
           <div>
-            <span>Ekranı 180° Döndür (Ters Montaj)</span>
-            <small>Kutu veya kablo yönüne göre ekranı baş aşağı çevirir</small>
+            <span data-tr="Ekranı 180° Döndür (Ters Montaj)">Rotate Display 180° (Upside-Down Mount)</span>
+            <small data-tr="Kutu veya kablo yönüne göre ekranı baş aşağı çevirir">Flips the screen to match the case or cable direction</small>
           </div>
           <input type="checkbox" class="toggle" id="s_oledFlip" onchange="saveLiveSettings()">
         </div>
         <div class="switch-row">
           <div>
-            <span>Renkleri Ters Çevir (Invert OLED)</span>
-            <small>Beyaz zemin üzerine siyah yazı modu</small>
+            <span data-tr="Renkleri Ters Çevir (Invert OLED)">Invert Colors</span>
+            <small data-tr="Beyaz zemin üzerine siyah yazı modu">Black text on a white background</small>
           </div>
           <input type="checkbox" class="toggle" id="s_oledInvert" onchange="saveLiveSettings()">
         </div>
@@ -493,79 +498,79 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     </div>
 
     <div class="card">
-      <h2>⏱️ Otomatik Geçiş (Carousel) ve Zamanlayıcılar</h2>
+      <h2 data-tr="⏱️ Otomatik Geçiş (Carousel) ve Zamanlayıcılar">⏱️ Auto Cycling (Carousel) &amp; Timers</h2>
       <div class="grid">
         <div class="switch-row">
           <div>
-            <span>Otomatik Yazıcı Geçişi (Auto-Cycling)</span>
-            <small>Yazıcılar arasında sırayla otomatik dolaşır</small>
+            <span data-tr="Otomatik Yazıcı Geçişi (Auto-Cycling)">Auto-Cycle Printers</span>
+            <small data-tr="Yazıcılar arasında sırayla otomatik dolaşır">Steps through the printers automatically</small>
           </div>
           <input type="checkbox" class="toggle" id="s_autoCycle" onchange="saveLiveSettings()">
         </div>
         <div class="switch-row">
           <div>
-            <span>Bitiş / Hata Anında Yazıcıya Odaklan</span>
-            <small>Bir baskı bittiğinde veya hata verdiğinde ekran o yazıcıya atlar</small>
+            <span data-tr="Bitiş / Hata Anında Yazıcıya Odaklan">Jump to Printer on Finish / Error</span>
+            <small data-tr="Bir baskı bittiğinde veya hata verdiğinde ekran o yazıcıya atlar">The screen jumps to a printer when its print finishes or fails</small>
           </div>
           <input type="checkbox" class="toggle" id="s_autoJumpAlert" onchange="saveLiveSettings()">
         </div>
         <div>
-          <label for="s_carouselSec">Yazıcı Geçiş Süresi (Saniye)</label>
+          <label for="s_carouselSec" data-tr="Yazıcı Geçiş Süresi (Saniye)">Time per Printer (seconds)</label>
           <input type="number" id="s_carouselSec" min="3" max="300" value="10" onchange="saveLiveSettings()">
         </div>
         <div>
-          <label for="s_manualTimeoutSec">Manuel Seçimden Otomatiğe Dönüş (Saniye)</label>
+          <label for="s_manualTimeoutSec" data-tr="Manuel Seçimden Otomatiğe Dönüş (Saniye)">Return to Auto After Manual Selection (seconds)</label>
           <input type="number" id="s_manualTimeoutSec" min="5" max="3600" value="45" onchange="saveLiveSettings()">
         </div>
         <div>
-          <label for="s_doneAlertSec">"DONE" (Bitti) Yanıp Sönme Süresi (Saniye)</label>
+          <label for="s_doneAlertSec" data-tr="&quot;DONE&quot; (Bitti) Yanıp Sönme Süresi (Saniye)">&quot;DONE&quot; Flash Duration (seconds)</label>
           <input type="number" id="s_doneAlertSec" min="10" max="7200" value="300" onchange="saveLiveSettings()">
         </div>
         <div>
-          <label for="s_screenSleepSec">Boşta Ekran Uyku Süresi (Sn, 0 = Kapanmaz)</label>
+          <label for="s_screenSleepSec" data-tr="Boşta Ekran Uyku Süresi (Sn, 0 = Kapanmaz)">Idle Screen Sleep (s, 0 = never)</label>
           <input type="number" id="s_screenSleepSec" min="0" max="7200" value="300" onchange="saveLiveSettings()">
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>🎛️ Döner Düğme (KY-040 Enkoder) &amp; Saat Dilimi</h2>
+      <h2 data-tr="🎛️ Döner Düğme (KY-040 Enkoder) &amp; Saat Dilimi">🎛️ Rotary Knob (KY-040 Encoder) &amp; Time Zone</h2>
       <div class="grid">
         <div class="switch-row">
           <div>
-            <span>Düğme Yönünü Ters Çevir</span>
-            <small>Saat yönünde çevirince geri gidiyorsa açın</small>
+            <span data-tr="Düğme Yönünü Ters Çevir">Reverse Knob Direction</span>
+            <small data-tr="Saat yönünde çevirince geri gidiyorsa açın">Turn on if clockwise goes backwards</small>
           </div>
           <input type="checkbox" class="toggle" id="s_encReverse" onchange="saveLiveSettings()">
         </div>
         <div>
-          <label for="s_encEdges">Düğme Hassasiyeti (Tık Başına Adım)</label>
+          <label for="s_encEdges" data-tr="Düğme Hassasiyeti (Tık Başına Adım)">Knob Sensitivity (Edges per Detent)</label>
           <select id="s_encEdges" onchange="saveLiveSettings()">
-            <option value="4">4 (Standart KY-040)</option>
-            <option value="2">2 (Yarım adım - 1 tık atlıyorsa seçin)</option>
-            <option value="1">1 (Çok hassas)</option>
+            <option value="4" data-tr="4 (Standart KY-040)">4 (Standard KY-040)</option>
+            <option value="2" data-tr="2 (Yarım adım - 1 tık atlıyorsa seçin)">2 (Half step - pick if it skips clicks)</option>
+            <option value="1" data-tr="1 (Çok hassas)">1 (Very sensitive)</option>
           </select>
         </div>
         <div>
-          <label for="tzPreset">Saat Dilimi Hazır Seçim (ETA Bitiş Saati İçin)</label>
+          <label for="tzPreset" data-tr="Saat Dilimi Hazır Seçim (ETA Bitiş Saati İçin)">Time Zone Preset (for the ETA clock time)</label>
           <select id="tzPreset" onchange="if(this.value){document.getElementById('s_timezone').value=this.value;saveLiveSettings();}">
-            <option value="">-- Özel / Mevcut --</option>
-            <option value="<+03>-3">Türkiye (UTC+3)</option>
-            <option value="CET-1CEST,M3.5.0,M10.5.0/3">Avrupa / Almanya (CET/CEST)</option>
-            <option value="GMT0BST,M3.5.0/1,M10.5.0">İngiltere (GMT/BST)</option>
-            <option value="EST5EDT,M3.2.0,M11.1.0">ABD Doğu (EST/EDT)</option>
-            <option value="PST8PDT,M3.2.0,M11.1.0">ABD Batı (PST/PDT)</option>
+            <option value="" data-tr="-- Özel / Mevcut --">-- Custom / Current --</option>
+            <option value="<+03>-3" data-tr="Türkiye (UTC+3)">Turkey (UTC+3)</option>
+            <option value="CET-1CEST,M3.5.0,M10.5.0/3" data-tr="Avrupa / Almanya (CET/CEST)">Central Europe (CET/CEST)</option>
+            <option value="GMT0BST,M3.5.0/1,M10.5.0" data-tr="İngiltere (GMT/BST)">United Kingdom (GMT/BST)</option>
+            <option value="EST5EDT,M3.2.0,M11.1.0" data-tr="ABD Doğu (EST/EDT)">US Eastern (EST/EDT)</option>
+            <option value="PST8PDT,M3.2.0,M11.1.0" data-tr="ABD Batı (PST/PDT)">US Pacific (PST/PDT)</option>
             <option value="UTC0">UTC</option>
           </select>
         </div>
         <div>
-          <label for="s_timezone">POSIX Saat Dilimi Kodu</label>
+          <label for="s_timezone" data-tr="POSIX Saat Dilimi Kodu">POSIX Time Zone String</label>
           <input type="text" id="s_timezone" maxlength="39" placeholder="<+03>-3" onchange="saveLiveSettings()">
         </div>
       </div>
       <div class="actions">
-        <button type="button" class="btn-primary" onclick="saveLiveSettings(true)">💾 Ekran &amp; Cihaz Ayarlarını Kaydet</button>
-        <button type="button" class="btn-danger" onclick="uiCmd({reboot:true})">🔄 Cihazı Yeniden Başlat</button>
+        <button type="button" class="btn-primary" onclick="saveLiveSettings(true)" data-tr="💾 Ekran &amp; Cihaz Ayarlarını Kaydet">💾 Save Display &amp; Device Settings</button>
+        <button type="button" class="btn-danger" onclick="uiCmd({reboot:true})" data-tr="🔄 Cihazı Yeniden Başlat">🔄 Restart Device</button>
       </div>
     </div>
   </div>
@@ -574,56 +579,56 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   <div id="tab-network" class="tab-pane">
     <form id="cfgForm" onsubmit="saveNetworkConfig(event)">
       <div class="card">
-        <h2>Wi-Fi Ağı (2.4 GHz)</h2>
+        <h2 data-tr="Wi-Fi Ağı (2.4 GHz)">Wi-Fi Network (2.4 GHz)</h2>
         <div class="grid">
           <div>
-            <label for="wifiSsid">Wi-Fi Adı (SSID)</label>
-            <input type="text" id="wifiSsid" maxlength="63" required placeholder="2.4 GHz Wi-Fi adı">
+            <label for="wifiSsid" data-tr="Wi-Fi Adı (SSID)">Wi-Fi Name (SSID)</label>
+            <input type="text" id="wifiSsid" maxlength="63" required placeholder="2.4 GHz Wi-Fi name" data-tr-ph="2.4 GHz Wi-Fi adı">
           </div>
           <div>
-            <label for="wifiPass">Wi-Fi Şifresi</label>
-            <input type="password" id="wifiPass" maxlength="63" placeholder="Değiştirmemek için boş bırakın">
+            <label for="wifiPass" data-tr="Wi-Fi Şifresi">Wi-Fi Password</label>
+            <input type="password" id="wifiPass" maxlength="63" placeholder="Leave empty to keep it">
           </div>
         </div>
       </div>
 
       <div class="card">
         <h2>
-          <span>Yazıcı Listesi (<span id="printerCount">0</span>/8)</span>
-          <button type="button" id="addBtn" onclick="addPrinter()">+ Yazıcı Ekle</button>
+          <span><span data-tr="Yazıcı Listesi">Printer List</span> (<span id="printerCount">0</span>/8)</span>
+          <button type="button" id="addBtn" onclick="addPrinter()" data-tr="+ Yazıcı Ekle">+ Add Printer</button>
         </h2>
-        <p class="hint">Aynı ağdaki yazıcılar için <b>LAN (Doğrudan IP)</b>, başka yerdeki yazıcılar için <b>Bambu Cloud</b> seçin.</p>
+        <p class="hint" data-tr="Aynı ağdaki yazıcılar için <b>LAN (Doğrudan IP)</b>, başka yerdeki yazıcılar için <b>Bambu Cloud</b> seçin.">Choose <b>LAN (Direct IP)</b> for printers on the same network and <b>Bambu Cloud</b> for printers elsewhere.</p>
         <div id="printerList"></div>
       </div>
 
       <div class="card">
-        <h2>Bambu Cloud Hesabı (İsteğe Bağlı)</h2>
-        <p class="hint">Yalnızca yukarıda <b>Bambu Cloud</b> modunda seçili yazıcı varsa gerekir.</p>
+        <h2 data-tr="Bambu Cloud Hesabı (İsteğe Bağlı)">Bambu Cloud Account (Optional)</h2>
+        <p class="hint" data-tr="Yalnızca yukarıda <b>Bambu Cloud</b> modunda seçili yazıcı varsa gerekir.">Only needed if a printer above uses <b>Bambu Cloud</b> mode.</p>
         <div class="grid">
           <div>
-            <label for="cloudHost">Cloud MQTT Sunucusu</label>
+            <label for="cloudHost" data-tr="Cloud MQTT Sunucusu">Cloud MQTT Server</label>
             <select id="cloudHost">
               <option value="us.mqtt.bambulab.com">Global (us.mqtt.bambulab.com)</option>
-              <option value="cn.mqtt.bambulab.com">China (cn.mqtt.bambulab.com)</option>
+              <option value="cn.mqtt.bambulab.com" data-tr="Çin (cn.mqtt.bambulab.com)">China (cn.mqtt.bambulab.com)</option>
             </select>
           </div>
           <div>
-            <label for="cloudUser">Cloud Kullanıcı ID</label>
+            <label for="cloudUser" data-tr="Cloud Kullanıcı ID">Cloud User ID</label>
             <input type="text" id="cloudUser" maxlength="47" placeholder="u_0000000000">
           </div>
         </div>
         <div style="margin-top:12px">
-          <label for="cloudToken">Cloud Erişim Anahtarı (JWT Token)</label>
-          <input type="password" id="cloudToken" maxlength="1270" placeholder="eyJ... (mevcudu korumak için boş bırakın)">
+          <label for="cloudToken" data-tr="Cloud Erişim Anahtarı (JWT Token)">Cloud Access Token (JWT)</label>
+          <input type="password" id="cloudToken" maxlength="1270" placeholder="eyJ...">
           <label style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="checkbox" id="clearToken" style="width:auto"> Kayıtlı Cloud Token'ı Sil
+            <input type="checkbox" id="clearToken" style="width:auto"> <span data-tr="Kayıtlı Cloud Token'ı Sil">Delete the saved cloud token</span>
           </label>
         </div>
       </div>
 
       <div class="actions">
-        <button type="submit" class="btn-primary" id="saveNetBtn">💾 Ağ &amp; Yazıcıları Kaydet ve Yeniden Başlat</button>
-        <button type="button" class="btn-danger hidden" id="resetBtn" onclick="resetDefaults()">⚠️ secrets.h Varsayılanlarına Sıfırla</button>
+        <button type="submit" class="btn-primary" id="saveNetBtn" data-tr="💾 Ağ &amp; Yazıcıları Kaydet ve Yeniden Başlat">💾 Save Network &amp; Printers and Restart</button>
+        <button type="button" class="btn-danger hidden" id="resetBtn" onclick="resetDefaults()" data-tr="⚠️ secrets.h Varsayılanlarına Sıfırla">⚠️ Reset to secrets.h Defaults</button>
       </div>
     </form>
   </div>
@@ -632,6 +637,44 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 <script>
 let printers = [];
 let liveState = { selectedPrinter: 0, view: 0, autoMode: true, sleeping: false, muted: false };
+let cfgFlags = { wifiPasswordSet: false, cloudTokenSet: false };
+
+// ---- Language: English by default, Turkish on request (remembered in this browser) ----
+let lang = 'en';
+try { lang = localStorage.getItem('lang') === 'tr' ? 'tr' : 'en'; } catch (e) {}
+
+// Picks the string for the current language
+function T(en, tr) { return lang === 'tr' ? tr : en; }
+
+// Static text: the English original is in the markup, the Turkish one in data-tr / data-tr-ph
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = T('Bambu OLED Monitor - Control Panel', 'Bambu OLED Monitor - Kontrol Paneli');
+  document.querySelectorAll('[data-tr]').forEach(el => {
+    if (el.dataset.en === undefined) el.dataset.en = el.innerHTML;
+    el.innerHTML = lang === 'tr' ? el.dataset.tr : el.dataset.en;
+  });
+  document.querySelectorAll('[data-tr-ph]').forEach(el => {
+    if (el.dataset.enPh === undefined) el.dataset.enPh = el.placeholder;
+    el.placeholder = lang === 'tr' ? el.dataset.trPh : el.dataset.enPh;
+  });
+  document.getElementById('langSel').value = lang;
+  applyConfigPlaceholders();
+}
+
+function setLang(l) {
+  lang = (l === 'tr') ? 'tr' : 'en';
+  try { localStorage.setItem('lang', lang); } catch (e) {}
+  applyLang();
+  renderPrinters();
+  fetchStatus();
+}
+
+function applyConfigPlaceholders() {
+  const saved = T('•••••••• (saved, leave empty to keep)', '•••••••• (kayıtlı, korumak için boş bırakın)');
+  document.getElementById('wifiPass').placeholder = cfgFlags.wifiPasswordSet ? saved : T('Wi-Fi password', 'Wi-Fi şifresi');
+  document.getElementById('cloudToken').placeholder = cfgFlags.cloudTokenSet ? saved : 'eyJ...';
+}
 
 function openTab(id, btn) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -659,8 +702,9 @@ function shortFromName(name) {
 
 function fmtMin(m) {
   if (m === undefined || m < 0) return '--';
-  if (m < 60) return m + 'dk';
-  return Math.floor(m / 60) + 's ' + String(m % 60).padStart(2, '0') + 'dk';
+  const mu = T('m', 'dk'), hu = T('h', 's');
+  if (m < 60) return m + mu;
+  return Math.floor(m / 60) + hu + ' ' + String(m % 60).padStart(2, '0') + mu;
 }
 
 function toggleCustomBoxes() {
@@ -686,9 +730,9 @@ async function soundCmd(body) {
     });
     const res = await r.json();
     if (body.action === 'mute') fetchStatus();
-    if (!res.ok) showMsg(res.error || 'Ses komutu başarısız', false);
+    if (!res.ok) showMsg(res.error || T('Sound command failed', 'Ses komutu başarısız'), false);
   } catch (e) {
-    showMsg('Bağlantı hatası: ' + e.message, false);
+    showMsg(T('Connection error: ', 'Bağlantı hatası: ') + e.message, false);
   }
 }
 
@@ -745,12 +789,12 @@ async function uiCmd(body) {
       body: JSON.stringify(body)
     });
     if (body.reboot) {
-      showMsg('Cihaz yeniden başlatılıyor...', true);
+      showMsg(T('Restarting the device...', 'Cihaz yeniden başlatılıyor...'), true);
       return;
     }
     fetchStatus();
   } catch (e) {
-    showMsg('Komut gönderilemedi: ' + e.message, false);
+    showMsg(T('Could not send the command: ', 'Komut gönderilemedi: ') + e.message, false);
   }
 }
 
@@ -759,7 +803,7 @@ function sendToast() {
   const txt = el.value.trim();
   if (!txt) return;
   uiCmd({ toast: txt });
-  showMsg('Mesaj OLED ekranda gösteriliyor: "' + txt + '"', true);
+  showMsg(T('Showing on the OLED: "', 'Mesaj OLED ekranda gösteriliyor: "') + txt + '"', true);
 }
 
 async function fetchStatus() {
@@ -769,15 +813,15 @@ async function fetchStatus() {
     liveState = d;
 
     document.getElementById('ipBadge').textContent = 'IP: ' + (d.ip || 'AP');
-    document.getElementById('rssiBadge').textContent = d.wifiRssi ? `Wi-Fi: ${d.wifiRssi} dBm` : 'Wi-Fi: AP Modu';
-    document.getElementById('heapBadge').textContent = `Boş RAM: ${Math.round((d.freeHeap||0)/1024)} KB`;
-    document.getElementById('upBadge').textContent = `Süre: ${fmtMin(Math.floor((d.uptimeSec||0)/60))}`;
+    document.getElementById('rssiBadge').textContent = d.wifiRssi ? `Wi-Fi: ${d.wifiRssi} dBm` : T('Wi-Fi: AP mode', 'Wi-Fi: AP Modu');
+    document.getElementById('heapBadge').textContent = T('Free RAM: ', 'Boş RAM: ') + `${Math.round((d.freeHeap||0)/1024)} KB`;
+    document.getElementById('upBadge').textContent = T('Uptime: ', 'Süre: ') + fmtMin(Math.floor((d.uptimeSec||0)/60));
 
-    document.getElementById('btnAutoToggle').textContent = 'Auto Geçiş: ' + (d.autoMode ? 'AÇIK' : 'KAPALI');
+    document.getElementById('btnAutoToggle').textContent = T('Auto cycle: ', 'Oto Geçiş: ') + (d.autoMode ? T('ON', 'AÇIK') : T('OFF', 'KAPALI'));
     document.getElementById('btnAutoToggle').className = 'btn-sm ' + (d.autoMode ? 'btn-active' : '');
-    document.getElementById('btnMuteQuick').textContent = 'Ses: ' + (d.muted ? 'SESSİZ 🔇' : 'AÇIK 🔊');
+    document.getElementById('btnMuteQuick').textContent = T('Sound: ', 'Ses: ') + (d.muted ? T('MUTED 🔇', 'SESSİZ 🔇') : T('ON 🔊', 'AÇIK 🔊'));
     document.getElementById('btnMuteQuick').className = 'btn-sm ' + (!d.muted ? 'btn-active' : '');
-    document.getElementById('btnSleepToggle').textContent = d.sleeping ? 'Ekranı Uyandır ☀️' : 'Ekranı Uyut 🌙';
+    document.getElementById('btnSleepToggle').textContent = d.sleeping ? T('Wake Screen ☀️', 'Ekranı Uyandır ☀️') : T('Sleep Screen 🌙', 'Ekranı Uyut 🌙');
 
     for (let v = 0; v < 4; v++) {
       const b = document.getElementById('vBtn' + v);
@@ -787,7 +831,7 @@ async function fetchStatus() {
     const grid = document.getElementById('liveGrid');
     const list = d.printers || [];
     if (list.length === 0) {
-      grid.innerHTML = '<p class="hint">Henüz yazıcı eklenmemiş.</p>';
+      grid.innerHTML = '<p class="hint">' + T('No printers added yet.', 'Henüz yazıcı eklenmemiş.') + '</p>';
       return;
     }
     grid.innerHTML = list.map((p, i) => {
@@ -795,7 +839,7 @@ async function fetchStatus() {
       const sel = (i === d.selectedPrinter);
       const nTemp = p.nozzle !== null ? `N:${Math.round(p.nozzle)}/${Math.round(p.nozzleTarget||0)}°C` : 'N:--';
       const bTemp = p.bed !== null ? `B:${Math.round(p.bed)}/${Math.round(p.bedTarget||0)}°C` : 'B:--';
-      const layer = (p.totalLayers > 0 && p.layer >= 0) ? `Katman ${p.layer}/${p.totalLayers}` : (p.isCloud ? 'Bambu Cloud' : p.ip);
+      const layer = (p.totalLayers > 0 && p.layer >= 0) ? `${T('Layer', 'Katman')} ${p.layer}/${p.totalLayers}` : (p.isCloud ? 'Bambu Cloud' : p.ip);
       return `
       <div class="p-card ${sel ? 'selected' : ''}" onclick="uiCmd({selectPrinter:${i}})">
         <div class="p-top">
@@ -805,13 +849,13 @@ async function fetchStatus() {
         <div class="p-bar"><div class="p-fill" style="width:${pct}%"></div></div>
         <div class="p-meta">
           <span><b>${p.percent >= 0 ? p.percent + '%' : '--'}</b> (${esc(layer)})</span>
-          <span>Kalan: <b>${fmtMin(p.remainingMin)}</b></span>
+          <span>${T('Left', 'Kalan')}: <b>${fmtMin(p.remainingMin)}</b></span>
         </div>
         <div class="p-meta">
           <span>${nTemp} &middot; ${bTemp}</span>
           <span>${esc(p.filament || '')} ${p.fanPct >= 0 ? 'Fan:' + p.fanPct + '%' : ''}</span>
         </div>
-        ${p.file ? `<div class="p-file">📄 ${esc(p.file)}</div>` : ''}
+        ${p.file ? `<div class="p-file" title="${esc(p.file)}">📄 ${esc(p.file)}</div>` : ''}
       </div>`;
     }).join('');
   } catch (e) {}
@@ -823,7 +867,8 @@ function renderPrinters() {
   document.getElementById('addBtn').disabled = printers.length >= 8;
 
   if (printers.length === 0) {
-    list.innerHTML = '<p class="hint" style="margin:4px 0">Yazıcı yok. "+ Yazıcı Ekle" butonuna tıklayın.</p>';
+    list.innerHTML = '<p class="hint" style="margin:4px 0">' +
+      T('No printers. Click "+ Add Printer".', 'Yazıcı yok. "+ Yazıcı Ekle" butonuna tıklayın.') + '</p>';
     return;
   }
 
@@ -832,39 +877,39 @@ function renderPrinters() {
     return `
     <div class="printer-item">
       <div class="printer-head">
-        <span style="font-weight:600">#${i + 1} ${esc(p.name || 'Yazıcı')}</span>
+        <span style="font-weight:600">#${i + 1} ${esc(p.name || T('Printer', 'Yazıcı'))}</span>
         <div class="btn-group">
           <button type="button" class="btn-sm" onclick="movePrinter(${i},-1)" ${i===0?'disabled':''}>&#9650;</button>
           <button type="button" class="btn-sm" onclick="movePrinter(${i},1)" ${i===printers.length-1?'disabled':''}>&#9660;</button>
-          <button type="button" class="btn-sm btn-danger" onclick="removePrinter(${i})">Sil</button>
+          <button type="button" class="btn-sm btn-danger" onclick="removePrinter(${i})">${T('Remove', 'Sil')}</button>
         </div>
       </div>
       <div class="grid">
         <div>
-          <label>Yazıcı Adı (Ekranda ~14 kr)</label>
+          <label>${T('Printer name (~14 chars on screen)', 'Yazıcı Adı (Ekranda ~14 kr)')}</label>
           <input type="text" value="${esc(p.name)}" maxlength="31" required oninput="printers[${i}].name=this.value">
         </div>
         <div>
-          <label>Kısa Ad (Overview tablosu, max 5 kr)</label>
+          <label>${T('Short name (Overview grid, max 5 chars)', 'Kısa Ad (Overview tablosu, max 5 kr)')}</label>
           <input type="text" value="${esc(p.shortName)}" maxlength="5" placeholder="${esc(shortFromName(p.name))}" oninput="printers[${i}].shortName=this.value">
         </div>
         <div>
-          <label>Seri Numarası (Serial)</label>
+          <label>${T('Serial number', 'Seri Numarası (Serial)')}</label>
           <input type="text" value="${esc(p.serial)}" maxlength="23" required placeholder="03000A000000001" oninput="printers[${i}].serial=this.value.trim()">
         </div>
         <div>
-          <label>Bağlantı Modu</label>
+          <label>${T('Connection mode', 'Bağlantı Modu')}</label>
           <select onchange="printers[${i}].mode=this.value;renderPrinters()">
-            <option value="lan" ${!isCloud?'selected':''}>LAN (Doğrudan IP)</option>
+            <option value="lan" ${!isCloud?'selected':''}>${T('LAN (Direct IP)', 'LAN (Doğrudan IP)')}</option>
             <option value="cloud" ${isCloud?'selected':''}>Bambu Cloud</option>
           </select>
         </div>
         <div class="${isCloud?'hidden':''}">
-          <label>Yazıcı LAN IP Adresi</label>
+          <label>${T('Printer LAN IP address', 'Yazıcı LAN IP Adresi')}</label>
           <input type="text" value="${esc(p.ip)}" maxlength="31" ${!isCloud?'required':''} placeholder="192.168.1.101" oninput="printers[${i}].ip=this.value.trim()">
         </div>
         <div class="${isCloud?'hidden':''}">
-          <label>LAN Erişim Kodu (8 hane)</label>
+          <label>${T('LAN access code (8 digits)', 'LAN Erişim Kodu (8 hane)')}</label>
           <input type="text" value="${esc(p.accessCode)}" maxlength="15" ${!isCloud?'required':''} placeholder="12345678" oninput="printers[${i}].accessCode=this.value.trim()">
         </div>
       </div>
@@ -891,10 +936,10 @@ async function loadAllConfig() {
     const r = await fetch('/api/config');
     const d = await r.json();
     document.getElementById('wifiSsid').value = d.wifiSsid || '';
-    document.getElementById('wifiPass').placeholder = d.wifiPasswordSet ? '•••••••• (kayıtlı, korumak için boş bırakın)' : 'Wi-Fi şifresi';
     document.getElementById('cloudHost').value = d.cloudHost || 'us.mqtt.bambulab.com';
     document.getElementById('cloudUser').value = d.cloudUser || '';
-    document.getElementById('cloudToken').placeholder = d.cloudTokenSet ? '•••••••• (kayıtlı, korumak için boş bırakın)' : 'eyJ...';
+    cfgFlags = { wifiPasswordSet: !!d.wifiPasswordSet, cloudTokenSet: !!d.cloudTokenSet };
+    applyConfigPlaceholders();
     document.getElementById('resetBtn').classList.toggle('hidden', !d.hasCustomConfig);
 
     const s = d.settings || {};
@@ -935,7 +980,7 @@ async function loadAllConfig() {
     }));
     renderPrinters();
   } catch (e) {
-    showMsg('Ayarlar yüklenemedi: ' + e.message, false);
+    showMsg(T('Could not load the settings: ', 'Ayarlar yüklenemedi: ') + e.message, false);
   }
 }
 
@@ -974,13 +1019,13 @@ async function saveLiveSettings(notify = false) {
     });
     const res = await r.json();
     if (res.ok) {
-      if (notify) showMsg('Ayarlar anında uygulandı ve hafızaya kaydedildi!', true);
+      if (notify) showMsg(T('Settings applied and saved!', 'Ayarlar anında uygulandı ve hafızaya kaydedildi!'), true);
       fetchStatus();
     } else {
-      showMsg('Kaydetme hatası: ' + (res.error || ''), false);
+      showMsg(T('Save error: ', 'Kaydetme hatası: ') + (res.error || ''), false);
     }
   } catch (e) {
-    showMsg('Bağlantı hatası: ' + e.message, false);
+    showMsg(T('Connection error: ', 'Bağlantı hatası: ') + e.message, false);
   }
 }
 
@@ -1010,25 +1055,27 @@ async function saveNetworkConfig(ev) {
       body: JSON.stringify(payload)
     });
     const res = await r.json();
-    if (res.ok) showMsg('Ağ ve yazıcı ayarları kaydedildi! Cihaz yeniden başlatılıyor...', true);
-    else { showMsg('Hata: ' + (res.error || ''), false); btn.disabled = false; }
+    if (res.ok) showMsg(T('Network and printer settings saved! Restarting...', 'Ağ ve yazıcı ayarları kaydedildi! Cihaz yeniden başlatılıyor...'), true);
+    else { showMsg(T('Error: ', 'Hata: ') + (res.error || ''), false); btn.disabled = false; }
   } catch (e) {
-    showMsg('Bağlantı hatası: ' + e.message, false);
+    showMsg(T('Connection error: ', 'Bağlantı hatası: ') + e.message, false);
     btn.disabled = false;
   }
 }
 
 async function resetDefaults() {
-  if (!confirm('Web üzerinden yapılan tüm ayarlar silinip secrets.h varsayılanlarına dönülsün mü?')) return;
+  if (!confirm(T('Delete every setting made on the web and go back to the secrets.h defaults?',
+                 'Web üzerinden yapılan tüm ayarlar silinip secrets.h varsayılanlarına dönülsün mü?'))) return;
   try {
     const r = await fetch('/api/reset', { method: 'POST' });
     const res = await r.json();
-    if (res.ok) showMsg('Varsayılan ayarlara dönüldü! Cihaz yeniden başlatılıyor...', true);
+    if (res.ok) showMsg(T('Defaults restored! Restarting...', 'Varsayılan ayarlara dönüldü! Cihaz yeniden başlatılıyor...'), true);
   } catch (e) {
-    showMsg('Sıfırlama hatası: ' + e.message, false);
+    showMsg(T('Reset error: ', 'Sıfırlama hatası: ') + e.message, false);
   }
 }
 
+applyLang();
 loadAllConfig();
 fetchStatus();
 setInterval(fetchStatus, 3000);
@@ -1095,8 +1142,8 @@ void handleGetStatus() {
     if (!isnan(s.bedTarget)) o["bedTarget"] = s.bedTarget;
     else o["bedTarget"] = nullptr;
     o["fanPct"] = s.partFanPct;
-    o["filament"] = s.filament();
-    o["file"] = s.file;
+    o["filament"] = String(s.filament());
+    o["file"] = String(s.file);
     o["wifiDbm"] = s.wifiDbm;
     o["hmsCount"] = s.hmsCount;
   }

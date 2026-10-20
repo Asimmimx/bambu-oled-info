@@ -61,6 +61,7 @@ Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama
   - **Ses & melodi stüdyosu**: buzzer ses seviyesini (`%1-%100`) ayarlayın, sesleri anında test edin, **Aktif Buzzer - Ses Seviyesi Melodili** veya **Chiptune Ton Modülasyonlu** modlar sayesinde aktif buzzer ile bile dinamik melodiler çalın, 7 bitiş melodisi ve 5 hata melodisi arasından seçim yapın, kendi özel melodinizi (`frekans:süre@ses%` veya `@ses%:süre`) tasarlayın.
   - **Ekran, düğme & zamanlayıcılar**: OLED parlaklığını (contrast), 180° ekran döndürmeyi, ters renk modunu, enkoder yönünü/hassasiyetini, geçiş sürelerini ve saat dilimini canlı ayarlayın.
   - **Wi-Fi, yazıcılar & Bambu Cloud**: 8 yazıcıya kadar LAN/Cloud listesini ve Bambu Cloud anahtarını kalıcı hafızada (NVS) yönetin.
+  - Panel varsayılan olarak **İngilizce** açılır; üst kısımdaki dil menüsünden **Türkçe**'ye geçilebilir (tarayıcı seçimi hatırlar).
 - Hiç yazıcı olmadan tüm ekranları görmek için sahte yazıcılı **demo yazılımı**.
 - Yazıcıları bulan ve erişim kodlarını okuyan iki küçük Python aracı.
 
@@ -405,6 +406,7 @@ Kullanılan alanlar (hepsi `print` altında): `gcode_state`, `mc_percent`, `mc_r
 - **Bitiş saati.** `şimdi + kalan süre`; NTP ve `TIMEZONE` kullanılır.
 - **Yeniden deneme.** Erişilemeyen yazıcı her 60 sn'de (ekrandayken 8 sn'de) denenir. Reddedilen bilgiler en çok dakikada bir denenir; böyle bir yazıcıya bakmak denemeyi öne çekmez.
 - **TLS.** Yazıcılar yerel ağda kendinden imzalı sertifika kullanır, olduğu gibi kabul edilir. Bulut sunucusunun sertifikası, anahtar gönderilmeden önce dahili Mozilla CA paketiyle doğrulanır.
+- **İş adları.** Gösterilen ad `subtask_name`'deki iş adıdır (yoksa `gcode_file`'daki dosya adı). Bambu Studio'dan gönderilen işler *proje* adını bildirir ve bu ad bir projenin her plakasında aynıdır; bu yüzden plaka numarası eklenir: `Organizer (plate 2)`.
 - **Dosya adları** ekran yazı tipi için ASCII'ye çevrilir: Türkçe harfler sadeleştirilir (ğ → g), desteklenmeyenler `?` olur.
 - **Bellek.** Bağlıyken yaklaşık 100 KB heap boş kalır (görülen en düşük: 84 KB); yazılım 3 MB'lık bölümde yaklaşık 1,3 MB'tır (OTA yok).
 - **Ekran uykusu.** 5 dakika boyunca hiçbir yazıcı basmıyor, duraklamış, hazırlanıyor ya da hatalı değilse ekran kapanır; düğmeye dokunmak veya yeni bir etkinlik uyandırır.

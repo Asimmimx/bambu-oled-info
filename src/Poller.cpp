@@ -80,6 +80,82 @@ void sanitizeName(const char* in, char* out, size_t n) {
   out[o] = '\0';
 }
 
+// Length of the longest prefix of s that fits in max bytes without splitting a UTF-8 sequence.
+size_t utf8Cut(const char* s, size_t max) {
+  size_t len = strlen(s);
+  if (len <= max) return len;
+  len = max;
+  while (len > 0 && ((uint8_t)s[len] & 0xC0) == 0x80) len--;
+  return len;
+}
+
+// Strips a known model/print file extension in place.
+void stripExtension(char* s) {
+  for (const char* ext : {".gcode.3mf", ".3mf", ".gcode", ".stl", ".step", ".stp", ".obj"}) {
+    const size_t n = strlen(s), e = strlen(ext);
+    if (n > e && !strcasecmp(s + n - e, ext)) {
+      s[n - e] = '\0';
+      return;
+    }
+  }
+}
+
+// Bambu Studio names a plate after the objects on it, "part.stl + part.stl + part.stl + ...", cut
+// off by the printer. Keep the first object without its extension; " +" marks different objects.
+void cleanJobName(const char* in, char* out, size_t n) {
+  const char* sep = strstr(in, " + ");
+  const size_t firstLen = sep ? (size_t)(sep - in) : strlen(in);
+  char first[96];
+  snprintf(first, sizeof first, "%.*s", (int)min(firstLen, sizeof first - 1), in);
+  bool mixed = false;
+  for (const char* p = sep; p; p = strstr(p, " + ")) {
+    p += 3;
+    const char* next = strstr(p, " + ");
+    const size_t len = next ? (size_t)(next - p) : strlen(p);
+    // the printer truncates the last one ("part.st...."): compare only what is there
+    const char* dots = strstr(p, "...");
+    const size_t cmp = (dots && (!next || dots < next)) ? (size_t)(dots - p) : len;
+    if (cmp > firstLen || strncmp(p, in, cmp) != 0 || (cmp == len && len != firstLen)) mixed = true;
+  }
+  stripExtension(first);
+  snprintf(out, n, mixed ? "%s +" : "%s", first);
+}
+
+// gcode_file -> plate number or a readable file name. A job sent from Bambu Studio / Handy runs
+// "/data/Metadata/plate_2.gcode" (the name is in subtask_name); a file started from the SD card
+// runs e.g. "/sdcard/Benchy.gcode.3mf".
+void parseGcodeFile(const char* path, PrinterStatus& s) {
+  const char* slash = strrchr(path, '/');
+  const char* base = slash ? slash + 1 : path;
+  if (!strncmp(base, "plate_", 6) && isdigit((uint8_t)base[6])) {
+    s.plate = (int8_t)constrain(atoi(base + 6), 0, 99);
+    s.gcode[0] = '\0';
+    return;
+  }
+  s.plate = 0;
+  char clean[96];
+  cleanJobName(base, clean, sizeof clean);
+  sanitizeName(clean, s.gcode, sizeof s.gcode);
+}
+
+// The name the screens show. Several printers often run different plates of one project: they all
+// report the same subtask_name, so the plate number is added to tell the jobs apart.
+void composeFile(PrinterStatus& s) {
+  const char* base = s.task[0] ? s.task : s.gcode;
+  if (s.plate <= 0) {
+    strlcpy(s.file, base, sizeof s.file);
+    return;
+  }
+  if (!*base) {
+    snprintf(s.file, sizeof s.file, "Plate %d", s.plate);
+    return;
+  }
+  char suffix[16];
+  snprintf(suffix, sizeof suffix, " (plate %d)", s.plate);
+  const size_t room = sizeof s.file - 1 - strlen(suffix);
+  snprintf(s.file, sizeof s.file, "%.*s%s", (int)utf8Cut(base, room), base, suffix);
+}
+
 // Printers send only changed fields (A1/P1) or everything (X1): merge whatever is present.
 void applyReport(int idx, JsonObjectConst p) {
   state::Guard guard;
@@ -132,10 +208,24 @@ void applyReport(int idx, JsonObjectConst p) {
   if (p["vt_tray"]["tray_type"].is<const char*>())
     strlcpy(s.extType, p["vt_tray"]["tray_type"].as<const char*>(), sizeof s.extType);
 
+  // Job name: subtask_name and gcode_file arrive independently (only when they change), so both are
+  // kept and the displayed name is rebuilt from them.
   const char* name = p["subtask_name"].is<const char*>() ? p["subtask_name"].as<const char*>() : nullptr;
   const char* gcode = p["gcode_file"].is<const char*>() ? p["gcode_file"].as<const char*>() : nullptr;
-  if (name && *name) sanitizeName(name, s.file, sizeof s.file);
-  else if (gcode && *gcode) sanitizeName(gcode, s.file, sizeof s.file);
+  if ((name && *name) || (gcode && *gcode)) {
+    if (name && *name) {
+      char clean[96];
+      cleanJobName(name, clean, sizeof clean);
+      sanitizeName(clean, s.task, sizeof s.task);
+    }
+    if (gcode && *gcode) parseGcodeFile(gcode, s);
+    char before[sizeof s.file];
+    strlcpy(before, s.file, sizeof before);
+    composeFile(s);
+    if (strcmp(before, s.file) != 0)
+      Serial.printf("[%s] job: \"%s\" (subtask_name=\"%s\" gcode_file=\"%s\")\n", config::printer(idx).name, s.file,
+                    name ? name : "", gcode ? gcode : "");
+  }
 
   // The printer reports the remaining time but not the elapsed time: estimate the latter from the
   // progress. Kept after the print ends so a finished job still shows how long it took.
