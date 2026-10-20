@@ -7,3 +7,5 @@ include/secrets.h
 include/secrets.h.bak
 include/secrets.*.h
 !include/secrets.example.h
+__pycache__/
+*.pyc

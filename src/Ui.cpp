@@ -18,8 +18,12 @@
 #define S_NODATA  "Veri bekleniyor"
 #define S_BADCODE "Erisim kodu hatali"
 #define S_NOREPLY "Yanit yok"
-#define S_AUTO_ON  "Otomatik: ACIK"
-#define S_AUTO_OFF "Otomatik: KAPALI"
+#define S_AUTO_ON  "Oto gecis: ACIK"
+#define S_AUTO_OFF "Oto gecis: KAPALI"
+#define S_SPEED    "Hiz"
+#define S_NOZZLE   "Nozul"
+#define S_FILAMENT "Filament"
+#define S_ERR_NONE "Hata yok"
 #define U_HOUR "s"
 #define U_MIN  "d"
 #else
@@ -32,15 +36,20 @@
 #define S_NODATA  "Waiting for data"
 #define S_BADCODE "Wrong access code"
 #define S_NOREPLY "No reply"
-#define S_AUTO_ON  "Auto: ON"
-#define S_AUTO_OFF "Auto: OFF"
+#define S_AUTO_ON  "Auto cycling: ON"
+#define S_AUTO_OFF "Auto cycling: OFF"
+#define S_SPEED    "Speed"
+#define S_NOZZLE   "Nozzle"
+#define S_FILAMENT "Filament"
+#define S_ERR_NONE "No errors"
 #define U_HOUR "h"
 #define U_MIN  "m"
 #endif
 
 namespace {
 
-enum class View : uint8_t { Progress, Details, Overview };
+enum class View : uint8_t { Progress, Details, Info, Overview };
+constexpr int kViewCount = 4;
 
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, PIN_OLED_SCL, PIN_OLED_SDA);
 
@@ -63,7 +72,7 @@ bool following() { return g_autoMode && !g_manual; }
 
 void showToast(const char* text) {
   strlcpy(g_toast, text, sizeof g_toast);
-  g_toastUntil = millis() + 1200;
+  g_toastUntil = millis() + 3000;
 }
 
 // Tells the poller which printer to stay connected to. The overview shows every printer at once,
@@ -100,6 +109,39 @@ const char* tagFor(const PrinterStatus& s) {
     case Phase::Failed: return "ERR";
     case Phase::Idle: return "IDLE";
     default: return "...";
+  }
+}
+
+// What the printer is doing right now (stg_cur). Only the well-known stages are named.
+const char* stageName(int stage) {
+  switch (stage) {
+    case 0: return "Printing";
+    case 1: return "Bed leveling";
+    case 2: return "Heating bed";
+    case 3: return "Sweeping XY";
+    case 4: return "Changing filament";
+    case 6: return "Filament runout";
+    case 7: return "Heating nozzle";
+    case 8: return "Calibrating extrusion";
+    case 9: return "Scanning bed";
+    case 10: return "Checking 1st layer";
+    case 13: return "Homing";
+    case 14: return "Cleaning nozzle";
+    case 15: return "Checking nozzle temp";
+    case 16: return "Paused by user";
+    case 22: return "Unloading filament";
+    case 24: return "Loading filament";
+    default: return "";
+  }
+}
+
+const char* speedName(int level) {
+  switch (level) {
+    case 1: return "Silent";
+    case 2: return "Standard";
+    case 3: return "Sport";
+    case 4: return "Ludicrous";
+    default: return "";
   }
 }
 
@@ -160,7 +202,7 @@ void drawProgressView(int idx, const PrinterStatus& s) {
     else if (s.link == Link::Offline) drawCentered(13, S_NOREPLY);
     else drawCentered(13, S_NODATA);
     u8g2.setFont(u8g2_font_5x8_tf);
-    drawCentered(24, pc.ip);
+    drawCentered(24, pc.ip[0] ? pc.ip : "Bambu Cloud");
     return;
   }
 
@@ -176,7 +218,9 @@ void drawProgressView(int idx, const PrinterStatus& s) {
   }
 
   u8g2.setFont(u8g2_font_5x8_tf);
-  if (s.active()) {
+  if (s.phase == Phase::Prepare && *stageName(s.stage)) {
+    snprintf(buf, sizeof buf, "%s", stageName(s.stage));  // heating, leveling... instead of times
+  } else if (s.active()) {
     fmtDuration(a, sizeof a, s.remainingMin);
     fmtDuration(b, sizeof b, s.elapsedMin);
     snprintf(buf, sizeof buf, S_LEFT " %s " S_ELAPSED " %s", a, b);
@@ -210,7 +254,7 @@ void drawDetailsView(int idx, const PrinterStatus& s) {
 
   if (s.link == Link::Offline || s.link == Link::AuthFailed || !s.hasData()) {
     drawCentered(12, s.link == Link::AuthFailed ? S_BADCODE : s.link == Link::Offline ? S_NOREPLY : S_NODATA);
-    drawCentered(24, pc.ip);
+    drawCentered(24, pc.ip[0] ? pc.ip : "Bambu Cloud");
     return;
   }
 
@@ -240,6 +284,51 @@ void drawDetailsView(int idx, const PrinterStatus& s) {
       u8g2.drawUTF8(x + span, 24, s.file);
     }
     u8g2.drawUTF8(x, 24, s.file);
+  }
+}
+
+void drawInfoView(int idx, const PrinterStatus& s) {
+  const PrinterConfig& pc = config::printer(idx);
+  u8g2.setFont(u8g2_font_5x8_tf);
+
+  char buf[48];
+  snprintf(buf, sizeof buf, "%.13s", pc.name);
+  u8g2.drawUTF8(0, 0, buf);
+  drawRight(0, tagFor(s));
+
+  if (s.link == Link::Offline || s.link == Link::AuthFailed || !s.hasData()) {
+    drawCentered(12, s.link == Link::AuthFailed ? S_BADCODE : s.link == Link::Offline ? S_NOREPLY : S_NODATA);
+    drawCentered(24, pc.ip[0] ? pc.ip : "Bambu Cloud");
+    return;
+  }
+
+  // Row 1: print speed mode
+  buf[0] = 0;
+  if (s.speedLevel > 0) {
+    int n = snprintf(buf, sizeof buf, S_SPEED " %s", speedName(s.speedLevel));
+    if (s.speedPct > 0) snprintf(buf + n, sizeof buf - n, " %d%%", s.speedPct);
+  }
+  u8g2.drawUTF8(0, 8, buf);
+
+  // Row 2: fans, nozzle size, filament in use
+  int n = 0;
+  buf[0] = 0;
+  // Part-cooling fan only: the A1 mini reports its (non-existent) aux fan with the same value.
+  if (s.partFanPct >= 0) n += snprintf(buf + n, sizeof buf - n, "Fan %d%%", s.partFanPct);
+  if (s.nozzleDia[0]) n += snprintf(buf + n, sizeof buf - n, "%s%smm", n ? " " : "", s.nozzleDia);
+  if (*s.filament()) n += snprintf(buf + n, sizeof buf - n, "%s%s", n ? " " : "", s.filament());
+  u8g2.drawUTF8(0, 16, buf);
+
+  // Row 3: errors win, then what the printer is doing, then HMS notices
+  if (s.needsAttention()) snprintf(buf, sizeof buf, "%s %08lX", S_ERROR, (unsigned long)s.printError);
+  else if (*stageName(s.stage) && s.active()) snprintf(buf, sizeof buf, "%s", stageName(s.stage));
+  else if (s.hmsCount > 0) snprintf(buf, sizeof buf, "HMS %u", s.hmsCount);
+  else snprintf(buf, sizeof buf, "%s", S_ERR_NONE);
+  u8g2.drawUTF8(0, 24, buf);
+  if (s.hmsCount > 0 && !s.needsAttention()) {
+    char h[10];
+    snprintf(h, sizeof h, "HMS %u", s.hmsCount);
+    drawRight(24, h);
   }
 }
 
@@ -388,7 +477,7 @@ void handle(input::Event e) {
       poller::focus(g_sel);
       break;
     case input::Event::Click:
-      g_view = (View)(((int)g_view + 1) % 3);
+      g_view = (View)(((int)g_view + 1) % kViewCount);
       g_carouselAt = now;
       applyFocus();
       break;
@@ -453,6 +542,7 @@ void render() {
     switch (g_view) {
       case View::Progress: drawProgressView(idx, state::get(idx)); break;
       case View::Details: drawDetailsView(idx, state::get(idx)); break;
+      case View::Info: drawInfoView(idx, state::get(idx)); break;
       case View::Overview: drawOverviewView(idx); break;
     }
   }

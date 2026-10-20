@@ -1,6 +1,6 @@
 # Bambu OLED Info
 
-Bambu Lab yazıcılarınızın ne yaptığını gösteren küçük bir masa üstü cihaz: **ad, ilerleme çubuğu, kalan süre, geçen süre, bitiş saati, sıcaklıklar, katman ve dosya adı**. Bir ESP32-C3, 0.91" OLED ekran ve bir döner düğmeden oluşur. Yazıcılarla doğrudan yerel ağınızdan konuşur: sunucu, uygulama ya da bulut gerekmez.
+Bambu Lab yazıcılarınızın ne yaptığını gösteren küçük bir masa üstü cihaz: **ad, ilerleme çubuğu, kalan süre, geçen süre, bitiş saati, sıcaklıklar, katman, dosya adı, hız modu, filament ve yazıcının o anda ne yaptığı**. Bir ESP32-C3, 0.91" OLED ekran ve bir döner düğmeden oluşur. Wi-Fi'nizdeki yazıcılar doğrudan yerel ağdan okunur; başka bir yerdeki yazıcılar (ikinci ev, atölye) Bambu hesabınız üzerinden okunabilir.
 
 *[English](README.md)*
 
@@ -10,8 +10,8 @@ Bambu Lab yazıcılarınızın ne yaptığını gösteren küçük bir masa üst
 
 | | |
 |---|---|
-| Donanımda doğrulandı | ESP32-C3 (CH343 USB-UART kart), SSD1306 128x32 OLED, 3x **A1 mini** (firmware 01.08.01.00), normal bulut modunda, LAN Only Mode gerekmeden |
-| Yazıldı, donanımda henüz doğrulanmadı | Döner düğme girişi, A1, P1/X1, H2 serisi, X2D, A2L |
+| Donanımda doğrulandı | ESP32-C3 (CH343 USB-UART kart), SSD1306 128x32 OLED, KY-040 düğme, yerel ağda normal bulut modunda 3x **A1 mini** (firmware 01.08.01.00), LAN Only Mode gerekmeden; başka evdeki 3 yazıcı (sahibine göre bir A1, bir X2D ve bir A2L) Bambu Cloud üzerinden |
+| Doğrulanmadı | P1 / X1 / H2 serisi ve diğerleri |
 
 ## Gerekenler
 
@@ -58,7 +58,7 @@ copy include\secrets.example.h include\secrets.h
      python tools/fetch_access_codes.py --token    # ya da makerworld.com'daki "token" çerezini yapıştırın
      ```
 
-     Kodları `secrets.h` dosyasına yazar, başka hiçbir şey saklamaz. Sonrasında her şey yereldir.
+     Kodları `secrets.h` dosyasına yazar, başka hiçbir şey saklamaz.
 
 4. **Derleyip yükleyin:**
 
@@ -70,31 +70,46 @@ copy include\secrets.example.h include\secrets.h
 
 Önce ekranları görmek isterseniz: `pio run -e demo -t upload` sahte yazıcılarla tüm durumları gösterir.
 
+### Wi-Fi'nizde olmayan yazıcılar
+
+`secrets.h` içinde `ip` değeri `""` olan yazıcı, Bambu Cloud üzerinden okunur. Tek komut bunu kurar: bulut girişinizi `secrets.h` dosyasına yazar ve hesabınızdaki, dosyada olmayan tüm yazıcıları ekler:
+
+```bash
+python tools/fetch_access_codes.py --token --cloud
+```
+
+- Cihaz hepsi için **tek** bir bulut bağlantısı tutar, bulut yazıcıları arasında geçiş anlıktır. Anahtar gönderilmeden önce sunucu sertifikası dahili CA paketiyle doğrulanır.
+- Anahtar Bambu hesabınızın şifresi gibidir ve yazılıma gömülür. Yaklaşık 3 ay geçerlidir; süre dolunca komutu yeniden çalıştırıp kartı güncelleyin. Bulut yazıcısında `AUTH` görmek genelde anahtarın dolduğu anlamına gelir.
+- Yalnızca global (Çin dışı) hesaplar.
+
+Alternatif: o yazıcıların yanına, kendi `secrets.h` dosyasıyla ikinci bir cihaz kurmak. Bulut gerekmez.
+
 ## Kullanım
 
 | Eylem | Sonuç |
 |---|---|
 | Hiçbir şey | Her yazıcı 10 sn gösterilir, sonra sıradaki |
 | Düğmeyi çevirmek | Yazıcı seçer; otomatik geçiş 45 sn durur |
-| Tıklamak | Sonraki ekran: **İlerleme** → **Detay** → **Genel bakış** |
-| Uzun basış | Otomatik geçişi aç / kapat |
+| Tıklamak | Sonraki ekran: **İlerleme** → **Detay** → **Bilgi** → **Genel bakış** |
+| Uzun basış | Otomatik geçişi aç / kapat (mesaj 3 sn ekranda kalır) |
+
+- **İlerleme:** ad, durum, yüzdeli çubuk, kalan ve geçen süre.
+- **Detay:** katman, nozul / tabla / hazne sıcaklığı, bitiş saati, Wi-Fi sinyali ve kayan dosya adı.
+- **Bilgi:** hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament, o anki aşama ve HMS uyarıları.
+- **Genel bakış:** tüm yazıcılar küçük bir tablo olarak.
 
 Hata veren yazıcının başlığı yanıp söner. 5 dakika boyunca hiçbir şey basılmıyorsa ekran kapanır (OLED yanması için); düğmeye dokunmak veya yeni bir baskı ekranı uyandırır.
-
-## Birden fazla yerdeki yazıcılar
-
-Cihaz yalnızca bağlı olduğu Wi-Fi'yi görür. Başka yerdeki yazıcılar için kendi `secrets.h` dosyasıyla ikinci bir cihaz kurun.
 
 ## Sorun giderme
 
 - **Kart hiç yazı vermiyor, yüklemeden sonra bile.** Birçok ESP32-C3 kartı flash'ını 80 MHz'de okuyamaz; önyükleyici `partition 0 invalid magic number` ile döngüye girer. Bu depo `platformio.ini` içinde 40 MHz DIO ve güncel Arduino çekirdeğini zorlar.
 - **Ekran boş.** `pio device monitor` ile seri çıktıya bakın: `[oled] found at 0x3C ...` yazar; bulamazsa diğer pin çiftlerini tarayıp ekranın nerede yanıt verdiğini söyler.
-- **`AUTH`**: erişim kodu yanlış. **`OFF`**: yazıcı kapalı ya da bu ağdan erişilemiyor.
-- Ekran yazı tipinde ş ı ğ İ yok; adlarda düz harf kullanın.
+- **`AUTH`**: erişim kodu yanlış (bulut yazıcısında: anahtarın süresi dolmuş). **`OFF`**: yazıcı kapalı ya da bu ağdan erişilemiyor.
+- `secrets.h` içine yazdığınız adlarda ş ı ğ İ yok; düz harf kullanın. Dosya adlarındaki Türkçe harfler otomatik ASCII'ye çevrilir.
 
 ## Uyarı
 
-Resmi değildir, Bambu Lab ile ilgisi yoktur. Protokol topluluk tarafından belgelenmiştir ([OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI)) ve her firmware güncellemesiyle değişebilir. Bulut betiği belgelenmemiş bir API kullanır ve çalışmayı bırakabilir. Firmware yalnızca yazıcı durumunu *okur*; durum isteği dışında komut göndermez.
+Resmi değildir, Bambu Lab ile ilgisi yoktur. Protokol topluluk tarafından belgelenmiştir ([OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI)) ve her firmware güncellemesiyle değişebilir. Bulut betiği ve bulut modu belgelenmemiş bir API kullanır ve çalışmayı bırakabilir. Firmware yalnızca yazıcı durumunu *okur*; durum isteği dışında komut göndermez.
 
 ## Lisans
 

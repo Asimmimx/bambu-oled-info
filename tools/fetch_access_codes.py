@@ -104,8 +104,32 @@ def short_name(name):
     return letters[:5] or "PRN"
 
 
-def update_secrets(path, devices):
-    """Fills in accessCode for every device whose serial already appears in secrets.h."""
+def set_define(text, name, value):
+    """Sets (or adds, right after WIFI_PASSWORD) a  #define NAME "value"  line."""
+    line = '#define %s "%s"' % (name, value)
+    pattern = re.compile(r"^#define\s+%s\s+.*$" % name, re.M)
+    if pattern.search(text):
+        return pattern.sub(lambda m: line, text, count=1)
+    wifi = re.search(r"^#define\s+WIFI_PASSWORD.*$", text, re.M)
+    pos = wifi.end() if wifi else 0
+    return text[:pos] + "\n" + line + text[pos:]
+
+
+def add_cloud_printers(text, devices):
+    """Appends printers to PRINTERS[] with an empty ip, which makes the firmware use Bambu Cloud."""
+    rows = "".join('\n    {"%s", "%s", "", "%s", ""},  // via Bambu Cloud'
+                   % (d["name"], short_name(d["name"]), d["dev_id"]) for d in devices)
+    pattern = re.compile(r"(static const PrinterConfig PRINTERS\[\]\s*=\s*\{.*?)(\n\};)", re.S)
+    if not pattern.search(text):
+        fail("Could not find the PRINTERS[] array in secrets.h")
+    return pattern.sub(lambda m: m.group(1) + rows + m.group(2), text, count=1)
+
+
+def update_secrets(path, devices, cloud=None):
+    """Fills in accessCode for every device whose serial already appears in secrets.h.
+
+    With cloud=(user, token) it also stores the cloud login and adds the remaining devices as
+    cloud printers. Returns (matched, others)."""
     text = path.read_text(encoding="utf-8")
     shutil.copy(path, path.with_name(path.name + ".bak"))
     matched, others = [], []
@@ -117,6 +141,11 @@ def update_secrets(path, devices):
         pattern = re.compile(r'("%s"\s*,\s*")[^"]*(")' % re.escape(serial))
         text = pattern.sub(lambda m: m.group(1) + code + m.group(2), text)
         matched.append(dev)
+    if cloud:
+        text = set_define(text, "BAMBU_CLOUD_USER", cloud[0])
+        text = set_define(text, "BAMBU_CLOUD_TOKEN", cloud[1])
+        if others:
+            text = add_cloud_printers(text, others)
     path.write_text(text, encoding="utf-8")
     return matched, others
 
@@ -143,6 +172,9 @@ def main():
     ap.add_argument("--secrets", default=str(root / "include" / "secrets.h"), help="secrets.h to update")
     ap.add_argument("--export-others", action="store_true",
                     help="write printers missing from secrets.h to include/secrets.others.h")
+    ap.add_argument("--cloud", action="store_true",
+                    help="also store the cloud login in secrets.h and add the printers missing from it as "
+                         "cloud printers (read through Bambu Cloud, e.g. ones in another house)")
     args = ap.parse_args()
 
     api, web = REGIONS["cn" if args.cn else "global"]
@@ -176,21 +208,38 @@ def main():
 
     missing = [d["name"] for d in devices if not d["dev_access_code"]]
     devices = [d for d in devices if d["dev_access_code"]]
-    matched, others = update_secrets(secrets, devices)
+
+    cloud = None
+    if args.cloud:
+        pref, _ = call(api + "/v1/design-user-service/my/preference", token=token)
+        if not pref.get("uid"):
+            fail("Could not read the account id (uid) needed for the cloud login.")
+        cloud = ("u_%s" % pref["uid"], token)
+    matched, others = update_secrets(secrets, devices, cloud)
 
     print("\nAccess codes written to %s (backup: %s.bak):" % (secrets, secrets.name))
     print("  " + (", ".join(d["name"] for d in matched) or "none: no serial in secrets.h matches the account"))
     if missing:
         print("\nNo access code returned for: " + ", ".join(missing))
     if others:
-        print("\nOn the account but not in secrets.h: " + ", ".join(d["name"] for d in others))
+        if cloud:
+            print("\nAdded as cloud printers (shown with an empty ip): " + ", ".join(d["name"] for d in others))
+            print("  Rename them in secrets.h if you like; the first ~14 characters fit on the display.")
+        else:
+            print("\nOn the account but not in secrets.h: " + ", ".join(d["name"] for d in others))
         if args.export_others:
             out = secrets.with_name("secrets.others.h")
             export_others(out, others)
             print("  Exported with their codes to %s" % out)
-        else:
-            print("  Re-run with --export-others to save them (with their codes) for another unit.")
-    print("\nDone. Nothing was stored except the codes in secrets.h; the token was discarded.")
+        elif not cloud:
+            print("  Re-run with --export-others to save them, or with --cloud to read them through Bambu Cloud.")
+    if cloud:
+        print("\nCloud login stored in %s (BAMBU_CLOUD_USER / BAMBU_CLOUD_TOKEN)." % secrets)
+        print("  The token is a password to your Bambu account and ends up in the device's flash.")
+        print("  It is valid for about 3 months; run this tool again then and re-flash.")
+        print("\nDone.")
+    else:
+        print("\nDone. Nothing was stored except the codes in secrets.h; the token was discarded.")
 
 
 if __name__ == "__main__":
