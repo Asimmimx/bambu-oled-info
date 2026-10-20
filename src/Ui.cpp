@@ -460,6 +460,8 @@ void begin() {
 void handle(input::Event e) {
   if (e == input::Event::None) return;
   const uint32_t now = millis();
+  Serial.printf("[input] %s\n", e == input::Event::Left ? "left" : e == input::Event::Right ? "right"
+                              : e == input::Event::Click ? "click" : "long press");
   g_lastInput = now;
   g_lastActive = now;
   if (g_asleep) {  // the first touch only wakes the screen

@@ -121,6 +121,7 @@ All tunables (carousel time, language `UI_LANG_TR`, timeouts, pins) are in [`inc
 - **Blank OLED.** Open the serial monitor (`pio device monitor`). The firmware prints `[oled] found at 0x3C ...`, or scans every other pin pair and tells you where the display answers.
 - **`AUTH`** on a printer: wrong access code (or the printer does not accept local connections; try LAN Only Mode). On cloud printers: the token expired.
 - **`OFF`**: the printer is off or not reachable from this network.
+- **Knob or button does nothing.** The serial log prints `[input] left / right / click / long press` for every event, and the 10-second status line shows the pin levels (`clk= dt= sw=`; `sw` drops to 0 while the knob is pressed). A level that never changes means a wiring problem.
 - Names you type in `secrets.h` are shown in a font without ş ı ğ İ; use plain letters.
 
 ## Disclaimer

@@ -104,6 +104,7 @@ Hata veren yazıcının başlığı yanıp söner. 5 dakika boyunca hiçbir şey
 
 - **Kart hiç yazı vermiyor, yüklemeden sonra bile.** Birçok ESP32-C3 kartı flash'ını 80 MHz'de okuyamaz; önyükleyici `partition 0 invalid magic number` ile döngüye girer. Bu depo `platformio.ini` içinde 40 MHz DIO ve güncel Arduino çekirdeğini zorlar.
 - **Ekran boş.** `pio device monitor` ile seri çıktıya bakın: `[oled] found at 0x3C ...` yazar; bulamazsa diğer pin çiftlerini tarayıp ekranın nerede yanıt verdiğini söyler.
+- **Düğme ya da dönüş çalışmıyor.** Seri günlük her olayı `[input] left / right / click / long press` olarak yazar; 10 saniyelik durum satırı da pin seviyelerini gösterir (`clk= dt= sw=`; düğmeye basılıyken `sw` 0 olur). Hiç değişmeyen bir seviye kablo sorunu demektir.
 - **`AUTH`**: erişim kodu yanlış (bulut yazıcısında: anahtarın süresi dolmuş). **`OFF`**: yazıcı kapalı ya da bu ağdan erişilemiyor.
 - `secrets.h` içine yazdığınız adlarda ş ı ğ İ yok; düz harf kullanın. Dosya adlarındaki Türkçe harfler otomatik ASCII'ye çevrilir.
 

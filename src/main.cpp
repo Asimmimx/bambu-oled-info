@@ -22,8 +22,9 @@ void loop() {
   static uint32_t lastLog = 0;
   if (millis() - lastLog >= HEARTBEAT_MS) {
     lastLog = millis();
-    Serial.printf("[sys] up %lus, heap free %u, min %u, largest block %u\n", millis() / 1000,
-                  ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+    Serial.printf("[sys] up %lus, heap free %u, min %u, largest block %u | knob pins clk=%d dt=%d sw=%d\n",
+                  millis() / 1000, ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap(),
+                  digitalRead(PIN_ENC_CLK), digitalRead(PIN_ENC_DT), digitalRead(PIN_ENC_SW));
   }
   delay(4);
 }
