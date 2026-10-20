@@ -24,6 +24,8 @@ WiFiClientSecure* g_tls = nullptr;  // transport of the current MQTT session, if
 bool g_cloudUp = false;             // the session is the Bambu Cloud one, shared by all cloud printers
 volatile bool g_gotFull[MAX_PRINTERS] = {};  // a report with gcode_state arrived during this visit
 uint32_t g_maxPayload = 0;
+volatile bool g_warm = true;  // the initial sweep over all printers is still running
+volatile int g_warmDone = 0;
 
 const char kPushall[] =
     "{\"pushing\":{\"sequence_id\":\"1\",\"command\":\"pushall\",\"version\":1,\"push_target\":1}}";
@@ -311,6 +313,10 @@ Visit visitLocal(int idx) {
 
     const uint32_t t = millis();
     if (g_gotFull[idx] && !fullAt) fullAt = t;
+    if (g_warm) {  // initial sweep: leave as soon as the state is known
+      if (fullAt || t - started > FIRST_REPORT_WAIT_MS) break;
+      continue;
+    }
     const int focus = g_focus;
     if (focus >= 0) {
       if (focus != idx) break;  // the knob moved on
@@ -359,6 +365,7 @@ Visit visitCloud(int idx) {
     g_cloudUp = true;
     for (int i = 0; i < n; i++) {
       if (!config::isCloud(i)) continue;
+      g_gotFull[i] = false;
       subscribePrinter(i);
       const bool asked = requestFullIfDue(i);
       if (i == idx && asked) expectFull = true;
@@ -383,6 +390,13 @@ Visit visitCloud(int idx) {
 
     const uint32_t t = millis();
     if (g_gotFull[idx] && !fullAt) fullAt = t;
+    if (g_warm) {  // initial sweep: done once every cloud printer has reported, or the wait runs out
+      bool all = true;
+      for (int i = 0; i < n; i++)
+        if (config::isCloud(i) && !g_gotFull[i]) all = false;
+      if (all || t - started > WARMUP_CLOUD_WAIT_MS) break;
+      continue;
+    }
     if (quick) {
       if (t - started > 200) break;
       continue;
@@ -404,7 +418,12 @@ Visit visitCloud(int idx) {
     closeSession();
     return Visit::Offline;
   }
-  if (!quick) logSummary(idx);
+  if (g_warm) {
+    for (int i = 0; i < n; i++)
+      if (config::isCloud(i)) logSummary(i);
+  } else if (!quick) {
+    logSummary(idx);
+  }
   if (!keep) closeSession();
   return Visit::Ok;
 }
@@ -427,6 +446,50 @@ int pickNext(int last) {
   return -1;
 }
 
+// Records the outcome of a visit. A cloud result applies to every cloud printer, a local one to that
+// printer only.
+void settle(int idx, Visit r) {
+  const int n = (int)config::printerCount();
+  const bool cloud = config::isCloud(idx);
+  const uint32_t now = millis();
+  for (int i = 0; i < n; i++) {
+    if (cloud ? !config::isCloud(i) : i != idx) continue;
+    {
+      state::Guard guard;
+      PrinterStatus& s = state::raw(i);
+      if (r == Visit::Ok) s.link = Link::Online;
+      else s.link = (r == Visit::AuthFailed) ? Link::AuthFailed : Link::Offline;
+    }
+    if (r == Visit::Ok) g_retryAt[i] = 0;
+    else if (r == Visit::AuthFailed) g_retryAt[i] = now + OFFLINE_RETRY_MS;  // wrong code: do not hammer
+    else g_retryAt[i] = now + (g_focus == idx ? FOCUS_RETRY_MS : OFFLINE_RETRY_MS);
+  }
+}
+
+// Power-up: read every printer once, so the first thing on screen is real data. Printers on the LAN
+// first, then one visit that fills in all cloud printers.
+void warmup() {
+  const int n = (int)config::printerCount();
+  Serial.println("[warmup] reading every printer once");
+  int firstCloud = -1, cloudCount = 0;
+  for (int i = 0; i < n; i++) {
+    if (config::isCloud(i)) {
+      if (firstCloud < 0) firstCloud = i;
+      cloudCount++;
+      continue;
+    }
+    settle(i, visit(i));
+    g_warmDone = g_warmDone + 1;
+  }
+  if (firstCloud >= 0) {
+    settle(firstCloud, visit(firstCloud));
+    g_warmDone = g_warmDone + cloudCount;
+  }
+  closeSession();
+  g_warm = false;
+  Serial.println("[warmup] done");
+}
+
 void task(void*) {
   buildFilter();
   g_mqtt.setBufferSize(MQTT_BUFFER_BYTES);
@@ -434,13 +497,16 @@ void task(void*) {
   g_mqtt.setKeepAlive(30);
   g_mqtt.setSocketTimeout(5);
 
-  const int n = (int)config::printerCount();
   int last = -1;
   for (;;) {
     ensureWifi();
     if (!state::wifiUp()) {
       closeSession();
       vTaskDelay(pdMS_TO_TICKS(2000));
+      continue;
+    }
+    if (g_warm) {
+      warmup();
       continue;
     }
     const int idx = pickNext(last);
@@ -451,23 +517,7 @@ void task(void*) {
       continue;
     }
     last = idx;
-    const Visit r = visit(idx);
-
-    // A cloud result applies to every cloud printer, a local one to that printer only
-    const bool cloud = config::isCloud(idx);
-    const uint32_t now = millis();
-    for (int i = 0; i < n; i++) {
-      if (cloud ? !config::isCloud(i) : i != idx) continue;
-      {
-        state::Guard guard;
-        PrinterStatus& s = state::raw(i);
-        if (r == Visit::Ok) s.link = Link::Online;
-        else s.link = (r == Visit::AuthFailed) ? Link::AuthFailed : Link::Offline;
-      }
-      if (r == Visit::Ok) g_retryAt[i] = 0;
-      else if (r == Visit::AuthFailed) g_retryAt[i] = now + OFFLINE_RETRY_MS;  // wrong code: do not hammer
-      else g_retryAt[i] = now + (g_focus == idx ? FOCUS_RETRY_MS : OFFLINE_RETRY_MS);
-    }
+    settle(idx, visit(idx));
   }
 }
 
@@ -524,6 +574,7 @@ namespace poller {
 
 void begin() {
 #if DEMO_MODE
+  g_warm = false;  // fake data is there from the start
   xTaskCreate(demoTask, "demo", 4096, nullptr, 1, nullptr);
 #else
   WiFi.mode(WIFI_STA);
@@ -543,5 +594,12 @@ void focus(int idx) {
 }
 
 int visiting() { return g_visiting; }
+
+bool warmingUp() { return g_warm; }
+
+void warmupProgress(int& done, int& total) {
+  done = g_warmDone;
+  total = (int)config::printerCount();
+}
 
 }  // namespace poller

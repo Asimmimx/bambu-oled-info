@@ -51,7 +51,7 @@ Other models should work in principle, because the status protocol is the same, 
 - Works with printers that send **partial** status (A1 family) as well as full status.
 - **Finish clock** ("done at 17:42"), from the printer's remaining time and NTP.
 - **Cloud mode** for printers on another network, with a verified TLS connection.
-- Errors **flash** the header; an idle farm **switches the screen off** (OLED burn-in) and wakes up when something happens.
+- Errors **flash** the header, and a finished print flashes its state tag; an idle farm **switches the screen off** (OLED burn-in) and wakes up when something happens.
 - English or Turkish labels (`UI_LANG_TR`), configurable pins, timings and time zone.
 - **Demo build** with fake printers to preview every screen without any printer.
 - Two small Python tools to find your printers and read their access codes.
@@ -112,6 +112,12 @@ No errors
 ```
 
 Speed mode and percentage, part-cooling fan, nozzle diameter, the filament in use (from the AMS slot or the external spool), and the last line: an error code, the printer's current stage, or the number of active HMS notices.
+
+**Job finished.** When a printer's job is done, its `DONE` tag flashes in the top-right corner of the Progress screen, and its cell flashes in the Overview, until the printer starts something new. An error flashes the whole header instead.
+
+**Last known data.** If a printer stops answering (`OFF`) or its credentials are rejected (`AUTH`), its last known values stay on screen: the tag shows what is wrong and the progress bars turn dotted. A full-screen message only appears for a printer that never reported anything.
+
+**Power-up.** The first thing you see is *Reading printers 3/6*: the device reads every printer once before the carousel starts, so no screen has to say "waiting for data".
 
 **State tags**: `RUN` printing, `PAUSE`, `PREP` preparing, `DONE`, `IDLE`, `ERR` failed or error code present, `OFF` not reachable, `AUTH` access code or cloud token rejected, `...` no data yet.
 
@@ -274,6 +280,7 @@ python tools/fetch_access_codes.py --token --cloud       # or without --token to
 | `FOCUS_RETRY_MS` | 8000 | Retry interval while that printer is on screen |
 | `FOCUS_SETTLE_MS` | 450 | Wait for the knob to stop before connecting |
 | `PUSHALL_MIN_INTERVAL_MS` | 330000 | Minimum time between full-status requests per printer (5.5 min) |
+| `WARMUP_CLOUD_WAIT_MS` | 8000 | Power-up sweep: how long to wait for the cloud printers to report |
 | `HEARTBEAT_MS` | 10000 | Interval of the status line in the serial log |
 | `MQTT_BUFFER_BYTES` | 24576 | Largest accepted MQTT message; bigger ones are silently dropped |
 
@@ -323,6 +330,7 @@ The fields used (all under `print`): `gcode_state`, `mc_percent`, `mc_remaining_
 ### Details worth knowing
 
 - **Partial reports.** Printers like the A1 only send fields that *changed*. The firmware merges them into the remembered state, and asks for a full picture (`pushall`) on the first visit and then at most every **5.5 minutes**: Bambu advises against asking more often because the printer's CPU can lag.
+- **Power-up sweep.** Before the carousel starts, every printer is read once (LAN printers one by one, then one cloud session for all cloud printers), which takes about ten seconds for six printers.
 - **Time elapsed is an estimate.** Printers report the time *left* and the percentage, not the time already spent. Elapsed time is `left × percent / (100 − percent)` for 1-99 %, so it is approximate, and unknown for a print that finished before the device started.
 - **Finish clock.** `now + time left`, using NTP and your `TIMEZONE`.
 - **Back-off.** An unreachable printer is retried every 60 s (8 s while it is on screen). Rejected credentials are retried at most once a minute, and looking at such a printer does not bring the retry forward.
@@ -386,7 +394,7 @@ It makes a backup (`secrets.h.bak`), prints a table of your printers, and **neve
 | Knob or button does nothing | The log prints `[input] left / right / click / long press` for every event, and the 10 s status line shows `clk= dt= sw=` (all 1 at rest; `sw` is 0 while pressed). A level that never changes means wiring. Rotation reversed: `ENC_REVERSE`. One click skips: `ENC_EDGES_PER_DETENT`. |
 | Printer shows `AUTH` | Wrong access code. For a cloud printer: the token expired, run `fetch_access_codes.py --token --cloud` again and re-flash. |
 | Printer shows `OFF` | Printer is off, or not reachable from this network (other subnet, guest Wi-Fi, client isolation). |
-| `...` stays on screen | Connected but no full report yet. The first status request can take a few seconds; the log shows `connected but no full report received` if it never comes. |
+| "Waiting for data" stays on screen | The printer never reported anything since power-up. The log shows `connected but no full report received` if the status request got no answer. |
 | A large printer never updates | Its messages may exceed `MQTT_BUFFER_BYTES`; the log prints the largest message seen. Raise the value. |
 | Finish time is missing | NTP has not synced (needs internet), or the printer is not printing. |
 | Letters missing in names | The font has no `ş ı ğ İ`; use plain letters in `secrets.h`. |

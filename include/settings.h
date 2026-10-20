@@ -39,6 +39,10 @@
 // Bambu's own advice: do not send "pushall" more often than every 5 minutes (P1/A1 CPUs lag).
 #define PUSHALL_MIN_INTERVAL_MS 330000
 
+// At power-up every printer is read once before the carousel starts, so no screen says "waiting".
+// A cloud session shares one wait for all cloud printers:
+#define WARMUP_CLOUD_WAIT_MS  8000
+
 // After this long without turning the knob the display returns to the auto carousel.
 #define MANUAL_TIMEOUT_MS     45000
 // Turn the OLED off after this long when nothing is printing (OLED burn-in). 0 = never.

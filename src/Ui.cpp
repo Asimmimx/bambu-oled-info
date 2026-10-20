@@ -18,6 +18,7 @@
 #define S_NODATA  "Veri bekleniyor"
 #define S_BADCODE "Erisim kodu hatali"
 #define S_NOREPLY "Yanit yok"
+#define S_LOADING  "Yazicilar okunuyor"
 #define S_AUTO_ON  "Oto gecis: ACIK"
 #define S_AUTO_OFF "Oto gecis: KAPALI"
 #define S_SPEED    "Hiz"
@@ -36,6 +37,7 @@
 #define S_NODATA  "Waiting for data"
 #define S_BADCODE "Wrong access code"
 #define S_NOREPLY "No reply"
+#define S_LOADING  "Reading printers"
 #define S_AUTO_ON  "Auto cycling: ON"
 #define S_AUTO_OFF "Auto cycling: OFF"
 #define S_SPEED    "Speed"
@@ -166,10 +168,18 @@ void drawRight(int y, const char* text) {
   u8g2.drawUTF8(128 - u8g2.getUTF8Width(text), y, text);
 }
 
-void drawBar(int x, int y, int w, int h, int percent) {
+// A dotted fill means "last known value": the printer is not answering.
+void drawBar(int x, int y, int w, int h, int percent, bool stale = false) {
   u8g2.drawFrame(x, y, w, h);
   const int fill = ((w - 4) * constrain(percent, 0, 100)) / 100;
-  if (fill > 0) u8g2.drawBox(x + 2, y + 2, fill, h - 4);
+  if (fill <= 0) return;
+  if (!stale) {
+    u8g2.drawBox(x + 2, y + 2, fill, h - 4);
+    return;
+  }
+  for (int py = y + 2; py < y + h - 2; py++)
+    for (int px = x + 2; px < x + 2 + fill; px++)
+      if (((px + py) & 1) == 0) u8g2.drawPixel(px, py);
 }
 
 void drawCentered(int y, const char* text) {
@@ -178,6 +188,14 @@ void drawCentered(int y, const char* text) {
 
 bool blinkOn() { return (millis() / 500) % 2 == 0; }
 
+// The printer is reachable and its job is done: that is worth flashing for.
+bool justFinished(const PrinterStatus& s) {
+  return s.phase == Phase::Finished && s.link != Link::Offline && s.link != Link::AuthFailed;
+}
+
+// The printer cannot be reached right now: what is shown is its last known state.
+bool isStale(const PrinterStatus& s) { return s.link == Link::Offline || s.link == Link::AuthFailed; }
+
 // ---- Views -----------------------------------------------------------------------------
 
 void drawHeader(const PrinterConfig& pc, const PrinterStatus& s) {
@@ -185,10 +203,16 @@ void drawHeader(const PrinterConfig& pc, const PrinterStatus& s) {
   char name[16];
   snprintf(name, sizeof name, "%.14s", pc.name);
   u8g2.drawUTF8(0, 0, name);
-  drawRight(0, tagFor(s));
-  if (s.needsAttention() && blinkOn()) {  // flash the header on errors
+  const char* tag = tagFor(s);
+  drawRight(0, tag);
+  if (s.needsAttention() && blinkOn()) {  // errors: flash the whole header
     u8g2.setDrawColor(2);
     u8g2.drawBox(0, 0, 128, 10);
+    u8g2.setDrawColor(1);
+  } else if (justFinished(s) && blinkOn()) {  // job done: flash just the state tag, top right
+    const int w = u8g2.getUTF8Width(tag);
+    u8g2.setDrawColor(2);
+    u8g2.drawBox(128 - w - 2, 0, w + 2, 10);
     u8g2.setDrawColor(1);
   }
 }
@@ -197,7 +221,7 @@ void drawProgressView(int idx, const PrinterStatus& s) {
   const PrinterConfig& pc = config::printer(idx);
   drawHeader(pc, s);
 
-  if (s.link == Link::Offline || s.link == Link::AuthFailed || !s.hasData()) {
+  if (!s.hasData()) {
     u8g2.setFont(u8g2_font_6x10_tf);
     if (s.link == Link::AuthFailed) drawCentered(13, S_BADCODE);
     else if (s.link == Link::Offline) drawCentered(13, S_NOREPLY);
@@ -211,7 +235,7 @@ void drawProgressView(int idx, const PrinterStatus& s) {
   const bool showBar = s.active() || s.phase == Phase::Finished || (s.phase == Phase::Failed && s.percent > 0);
   u8g2.setFont(u8g2_font_6x10_tf);
   if (showBar && s.percent >= 0) {
-    drawBar(0, 12, 100, 9, s.percent);
+    drawBar(0, 12, 100, 9, s.percent, isStale(s));
     snprintf(buf, sizeof buf, "%d%%", s.percent);
     u8g2.drawUTF8(104, 11, buf);
   } else {
@@ -246,14 +270,14 @@ void drawDetailsView(int idx, const PrinterStatus& s) {
   char buf[40], n[16], t[16], c[10];
   snprintf(buf, sizeof buf, "%.13s", pc.name);
   u8g2.drawUTF8(0, 0, buf);
-  if (s.totalLayers > 0 && s.layer >= 0) {
+  if (!isStale(s) && s.totalLayers > 0 && s.layer >= 0) {
     snprintf(buf, sizeof buf, "L%d/%d", s.layer, s.totalLayers);
     drawRight(0, buf);
   } else {
-    drawRight(0, tagFor(s));
+    drawRight(0, tagFor(s));  // also tells "OFF" / "AUTH" while the numbers below are old
   }
 
-  if (s.link == Link::Offline || s.link == Link::AuthFailed || !s.hasData()) {
+  if (!s.hasData()) {
     drawCentered(12, s.link == Link::AuthFailed ? S_BADCODE : s.link == Link::Offline ? S_NOREPLY : S_NODATA);
     drawCentered(24, pc.ip[0] ? pc.ip : "Bambu Cloud");
     return;
@@ -267,7 +291,7 @@ void drawDetailsView(int idx, const PrinterStatus& s) {
   u8g2.drawUTF8(0, 8, buf);
 
   char eta[12];
-  if (s.active() && fmtEta(eta, sizeof eta, s.remainingMin)) snprintf(buf, sizeof buf, S_ETA " %s", eta);
+  if (!isStale(s) && s.active() && fmtEta(eta, sizeof eta, s.remainingMin)) snprintf(buf, sizeof buf, S_ETA " %s", eta);
   else buf[0] = 0;
   u8g2.drawUTF8(0, 16, buf);
   if (s.wifiDbm != 0) {
@@ -297,7 +321,7 @@ void drawInfoView(int idx, const PrinterStatus& s) {
   u8g2.drawUTF8(0, 0, buf);
   drawRight(0, tagFor(s));
 
-  if (s.link == Link::Offline || s.link == Link::AuthFailed || !s.hasData()) {
+  if (!s.hasData()) {
     drawCentered(12, s.link == Link::AuthFailed ? S_BADCODE : s.link == Link::Offline ? S_NOREPLY : S_NODATA);
     drawCentered(24, pc.ip[0] ? pc.ip : "Bambu Cloud");
     return;
@@ -343,7 +367,7 @@ void drawOverviewView(int selected) {
     const int y = (i / 3) * 16;
 
     char value[8];
-    if (s.link == Link::Offline || s.link == Link::AuthFailed || !s.hasData()) snprintf(value, sizeof value, "%s", s.link == Link::AuthFailed ? "AUTH" : "off");
+    if (!s.hasData()) snprintf(value, sizeof value, "%s", s.link == Link::AuthFailed ? "AUTH" : "off");
     else if (s.active() && s.percent >= 0) snprintf(value, sizeof value, "%d%%", s.percent);
     else if (s.phase == Phase::Finished) snprintf(value, sizeof value, "done");
     else if (s.needsAttention()) snprintf(value, sizeof value, "ERR");
@@ -359,13 +383,13 @@ void drawOverviewView(int selected) {
     u8g2.drawStr(x + 41 - u8g2.getStrWidth(value), y + 1, value);
     u8g2.setDrawColor(1);
 
-    if (s.needsAttention() && blinkOn()) {
+    if ((s.needsAttention() || justFinished(s)) && blinkOn()) {  // error or job done: flash the cell
       u8g2.setDrawColor(2);
       u8g2.drawBox(x, y, 41, 7);
       u8g2.setDrawColor(1);
     }
-    if ((s.active() || s.phase == Phase::Finished) && s.percent >= 0 && s.hasData() && s.link != Link::Offline) {
-      drawBar(x, y + 9, 41, 5, s.percent);
+    if ((s.active() || s.phase == Phase::Finished) && s.percent >= 0 && s.hasData()) {
+      drawBar(x, y + 9, 41, 5, s.percent, isStale(s));
     } else {
       u8g2.drawHLine(x, y + 11, 41);  // dotted rule for quiet printers
       u8g2.setDrawColor(0);
@@ -373,6 +397,19 @@ void drawOverviewView(int selected) {
       u8g2.setDrawColor(1);
     }
   }
+}
+
+// Shown while the poller reads every printer once at power-up.
+void drawWarmup() {
+  int done = 0, total = 0;
+  poller::warmupProgress(done, total);
+  u8g2.setFont(u8g2_font_6x10_tf);
+  drawCentered(1, S_LOADING);
+  drawBar(14, 14, 100, 9, total > 0 ? done * 100 / total : 0);
+  char buf[12];
+  snprintf(buf, sizeof buf, "%d/%d", done, total);
+  u8g2.setFont(u8g2_font_5x8_tf);
+  drawCentered(24, buf);
 }
 
 void drawToast() {
@@ -505,7 +542,9 @@ void render() {
     g_carouselAt = now;
     applyFocus();
   }
-  if (following()) {
+  if (poller::warmingUp()) {
+    g_carouselAt = now;  // the carousel only starts once the first sweep is done
+  } else if (following()) {
     const int n = printerCount();
     if (g_view == View::Overview) {
       // Highlight whichever printer the poller is visiting right now
@@ -540,6 +579,8 @@ void render() {
     drawCentered(4, S_WIFI);
     u8g2.setFont(u8g2_font_5x8_tf);
     drawCentered(18, config::wifiSsid());
+  } else if (poller::warmingUp()) {
+    drawWarmup();
   } else {
     const int idx = constrain(g_sel, 0, printerCount() - 1);
     switch (g_view) {

@@ -15,4 +15,8 @@ void focus(int idx);
 // Index of the printer the poller is currently talking to (or last talked to), -1 before the first.
 int visiting();
 
+// At power-up the poller reads every printer once before anything is shown. True until that is done.
+bool warmingUp();
+void warmupProgress(int& done, int& total);
+
 }  // namespace poller

@@ -51,7 +51,7 @@ Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama
 - **Kısmi** durum gönderen yazıcılarla (A1 ailesi) ve tam durum gönderenlerle çalışır.
 - **Bitiş saati** ("17:42'de biter"): yazıcının kalan süresi ve NTP ile hesaplanır.
 - Başka ağdaki yazıcılar için doğrulanmış TLS bağlantılı **bulut modu**.
-- Hata başlığı **yanıp söner**; boştaki bir yazıcı grubu ekranı **kapatır** (OLED yanması için) ve bir şey olunca uyanır.
+- Hata başlığı **yanıp söner**, biten baskının durum etiketi de; boştaki bir yazıcı grubu ekranı **kapatır** (OLED yanması için) ve bir şey olunca uyanır.
 - Türkçe ya da İngilizce etiketler (`UI_LANG_TR`), ayarlanabilir pinler, süreler ve saat dilimi.
 - Hiç yazıcı olmadan tüm ekranları görmek için sahte yazıcılı **demo yazılımı**.
 - Yazıcıları bulan ve erişim kodlarını okuyan iki küçük Python aracı.
@@ -112,6 +112,12 @@ Hata yok
 ```
 
 Hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament (AMS yuvasından ya da harici makaradan) ve son satırda: hata kodu, yazıcının o anki aşaması ya da etkin HMS uyarılarının sayısı.
+
+**İş bitince.** Bir yazıcının işi bittiğinde `DONE` etiketi İlerleme ekranında sağ üst köşede, genel bakışta ise hücresi yanıp söner; yazıcı yeni bir işe başlayana kadar sürer. Hata ise başlığın tamamını yanıp söndürür.
+
+**Son bilinen veri.** Bir yazıcı yanıt vermeyi bırakırsa (`OFF`) ya da bilgileri reddedilirse (`AUTH`) son bilinen değerler ekranda kalır: etiket neyin yanlış olduğunu gösterir, ilerleme çubukları noktalı olur. Tam ekran mesajı yalnızca hiç veri vermemiş bir yazıcı için çıkar.
+
+**Açılış.** İlk gördüğünüz *Yazicilar okunuyor 3/6* ekranıdır: cihaz karusel başlamadan önce her yazıcıyı bir kez okur, böylece hiçbir ekranda "veri bekleniyor" yazması gerekmez.
 
 **Durum etiketleri**: `RUN` basıyor, `PAUSE`, `PREP` hazırlanıyor, `DONE`, `IDLE`, `ERR` hata ya da hata kodu var, `OFF` erişilemiyor, `AUTH` erişim kodu ya da bulut anahtarı reddedildi, `...` henüz veri yok.
 
@@ -274,6 +280,7 @@ python tools/fetch_access_codes.py --token --cloud       # --token olmadan: e-po
 | `FOCUS_RETRY_MS` | 8000 | O yazıcı ekrandayken yeniden deneme aralığı |
 | `FOCUS_SETTLE_MS` | 450 | Bağlanmadan önce düğmenin durmasını bekleme |
 | `PUSHALL_MIN_INTERVAL_MS` | 330000 | Yazıcı başına iki tam durum isteği arasındaki en kısa süre (5,5 dk) |
+| `WARMUP_CLOUD_WAIT_MS` | 8000 | Açılış taraması: bulut yazıcılarının rapor vermesi için bekleme süresi |
 | `HEARTBEAT_MS` | 10000 | Seri günlükteki durum satırının aralığı |
 | `MQTT_BUFFER_BYTES` | 24576 | Kabul edilen en büyük MQTT mesajı; büyükler sessizce atılır |
 
@@ -323,6 +330,7 @@ Kullanılan alanlar (hepsi `print` altında): `gcode_state`, `mc_percent`, `mc_r
 ### Bilinmesi gerekenler
 
 - **Kısmi raporlar.** A1 gibi yazıcılar yalnızca *değişen* alanları gönderir. Yazılım bunları hatırlanan duruma ekler; ilk ziyarette ve sonra en çok **5,5 dakikada bir** tam durum ister (`pushall`): Bambu, yazıcı işlemcisi takılabileceği için daha sık istenmemesini öneriyor.
+- **Açılış taraması.** Karusel başlamadan önce her yazıcı bir kez okunur (LAN yazıcıları tek tek, sonra tüm bulut yazıcıları için tek bir bulut oturumu); altı yazıcı için yaklaşık on saniye sürer.
 - **Geçen süre bir tahmindir.** Yazıcılar kalan süreyi ve yüzdeyi bildirir, harcanan süreyi değil. Geçen süre, %1-99 arası için `kalan × yüzde / (100 − yüzde)` ile hesaplanır; yaklaşıktır ve cihaz açılmadan önce biten bir baskı için bilinmez.
 - **Bitiş saati.** `şimdi + kalan süre`; NTP ve `TIMEZONE` kullanılır.
 - **Yeniden deneme.** Erişilemeyen yazıcı her 60 sn'de (ekrandayken 8 sn'de) denenir. Reddedilen bilgiler en çok dakikada bir denenir; böyle bir yazıcıya bakmak denemeyi öne çekmez.
@@ -386,7 +394,7 @@ Yedek alır (`secrets.h.bak`), yazıcılarınızı tablo olarak yazdırır ve **
 | Düğme ya da buton bir şey yapmıyor | Günlük her olayı `[input] left / right / click / long press` olarak yazar; 10 sn'lik durum satırı `clk= dt= sw=` gösterir (boştayken hepsi 1, basılıyken `sw` 0). Hiç değişmeyen seviye kablo sorunudur. Dönüş ters: `ENC_REVERSE`. Bir tık atlıyor: `ENC_EDGES_PER_DETENT`. |
 | Yazıcıda `AUTH` | Erişim kodu yanlış. Bulut yazıcısında: anahtarın süresi dolmuş, `fetch_access_codes.py --token --cloud` komutunu yeniden çalıştırıp kartı yeniden yükleyin. |
 | Yazıcıda `OFF` | Yazıcı kapalı ya da bu ağdan erişilemiyor (başka alt ağ, misafir Wi-Fi, istemci yalıtımı). |
-| Ekranda `...` kalıyor | Bağlanıldı ama henüz tam rapor yok. İlk durum isteği birkaç sn sürebilir; hiç gelmezse günlükte `connected but no full report received` yazar. |
+| Ekranda "veri bekleniyor" kalıyor | Yazıcı açılıştan beri hiç veri vermedi. Durum isteği yanıtsız kaldıysa günlükte `connected but no full report received` yazar. |
 | Büyük bir yazıcı hiç güncellenmiyor | Mesajları `MQTT_BUFFER_BYTES` değerini aşıyor olabilir; günlük görülen en büyük mesajı yazar. Değeri artırın. |
 | Bitiş saati yok | NTP eşitlenmedi (internet gerekir) ya da yazıcı baskıda değil. |
 | Adlarda harfler eksik | Yazı tipinde `ş ı ğ İ` yok; `secrets.h` içinde düz harf kullanın. |
