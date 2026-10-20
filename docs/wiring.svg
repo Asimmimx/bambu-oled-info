@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="13">
+  <title>Wiring: ESP32-C3, SSD1306 128x32 OLED, KY-040 rotary encoder</title>
+  <rect width="760" height="470" fill="#ffffff"/>
+
+  <!-- ESP32-C3 board -->
+  <rect x="40" y="30" width="200" height="400" rx="8" fill="#eef2f7" stroke="#34495e" stroke-width="2"/>
+  <text x="140" y="56" text-anchor="middle" font-weight="bold" font-size="15" fill="#1c2733">ESP32-C3</text>
+  <g fill="#1c2733" text-anchor="end">
+    <text x="228" y="84">GND</text>
+    <text x="228" y="114">3V3</text>
+    <text x="228" y="144">GPIO5</text>
+    <text x="228" y="174">GPIO4</text>
+    <text x="228" y="294">GPIO6</text>
+    <text x="228" y="324">GPIO7</text>
+    <text x="228" y="354">GPIO10</text>
+  </g>
+
+  <!-- OLED: pins listed in the order printed on the module (GND VCC SCK SDA) -->
+  <rect x="520" y="50" width="200" height="160" rx="8" fill="#eef2f7" stroke="#34495e" stroke-width="2"/>
+  <text x="640" y="116" text-anchor="middle" font-weight="bold" font-size="14" fill="#1c2733">OLED 0.91"</text>
+  <text x="640" y="134" text-anchor="middle" font-size="11" fill="#57626e">SSD1306 128x32</text>
+  <text x="640" y="150" text-anchor="middle" font-size="11" fill="#57626e">I2C, address 0x3C</text>
+  <g fill="#1c2733">
+    <text x="532" y="84">GND</text>
+    <text x="532" y="114">VCC</text>
+    <text x="532" y="144">SCK (SCL)</text>
+    <text x="532" y="174">SDA</text>
+  </g>
+
+  <!-- KY-040 -->
+  <rect x="520" y="260" width="200" height="180" rx="8" fill="#eef2f7" stroke="#34495e" stroke-width="2"/>
+  <text x="640" y="330" text-anchor="middle" font-weight="bold" font-size="14" fill="#1c2733">KY-040</text>
+  <text x="640" y="348" text-anchor="middle" font-size="11" fill="#57626e">rotary encoder</text>
+  <g fill="#1c2733">
+    <text x="532" y="294">CLK</text>
+    <text x="532" y="324">DT</text>
+    <text x="532" y="354">SW</text>
+    <text x="532" y="384">+</text>
+    <text x="532" y="414">GND</text>
+  </g>
+
+  <!-- Wires -->
+  <g fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="240,80 520,80" stroke="#1c2733"/>
+    <polyline points="240,110 520,110" stroke="#d62d20"/>
+    <polyline points="240,140 520,140" stroke="#008744"/>
+    <polyline points="240,170 520,170" stroke="#0057e7"/>
+    <polyline points="240,290 520,290" stroke="#8e44ad"/>
+    <polyline points="240,320 520,320" stroke="#e67e22"/>
+    <polyline points="240,350 520,350" stroke="#16a085"/>
+    <!-- 3V3 and GND branches down to the encoder -->
+    <polyline points="400,110 400,380 520,380" stroke="#d62d20"/>
+    <polyline points="440,80 440,410 520,410" stroke="#1c2733"/>
+  </g>
+  <circle cx="400" cy="110" r="4" fill="#d62d20"/>
+  <circle cx="440" cy="80" r="4" fill="#1c2733"/>
+
+  <!-- Wire labels -->
+  <g font-size="12" text-anchor="middle">
+    <text x="320" y="136" fill="#008744">SCL</text>
+    <text x="320" y="166" fill="#0057e7">SDA</text>
+    <text x="320" y="286" fill="#8e44ad">CLK</text>
+    <text x="320" y="316" fill="#e67e22">DT</text>
+    <text x="320" y="346" fill="#16a085">SW</text>
+  </g>
+
+  <text x="380" y="458" text-anchor="middle" fill="#57626e" font-size="11">Go by the pin labels on your modules, not their order. KY-040 "+" goes to 3V3 (not 5V).</text>
+</svg>

@@ -1,0 +1,9 @@
+.pio/
+.vscode/
+*.log
+
+# Wi-Fi password and printer access codes: never commit these
+include/secrets.h
+include/secrets.h.bak
+include/secrets.*.h
+!include/secrets.example.h
