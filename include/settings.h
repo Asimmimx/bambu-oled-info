@@ -78,9 +78,6 @@
 // 1 if your buzzer module sounds when the pin is LOW (many 3-pin modules with a transistor do).
 #define BUZZER_ACTIVE_LOW 0
 
-// ---- Language of the on-screen labels: 0 = English, 1 = Turkish ------------------------
-#define UI_LANG_TR 1
-
 // ---- Time ------------------------------------------------------------------------------
 // POSIX TZ string used for the "finishes at" clock. Turkey: "<+03>-3".
 #define TIMEZONE "<+03>-3"
@@ -105,6 +102,10 @@
 // At power-up every printer is read once before the carousel starts, so no screen says "waiting".
 // A cloud session shares one wait for all cloud printers:
 #define WARMUP_CLOUD_WAIT_MS  8000
+
+// A finished job flashes "DONE" for this long, then the printer shows a steady "IDLE". A printer that
+// was already finished when the device started shows "IDLE" right away.
+#define DONE_ALERT_MS         300000
 
 // After this long without turning the knob the display returns to the auto carousel.
 #define MANUAL_TIMEOUT_MS     45000

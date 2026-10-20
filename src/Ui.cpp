@@ -9,38 +9,16 @@
 #include "State.h"
 #include "settings.h"
 
-#if UI_LANG_TR
-#define S_LEFT    "Kalan"
-#define S_ELAPSED "Geçen"
-#define S_ETA     "Bitis"
-#define S_READY   "Hazir"
-#define S_ERROR   "Hata"
-#define S_WIFI    "WiFi baglaniyor"
-#define S_NODATA  "Veri bekleniyor"
-#define S_BADCODE "Erisim kodu hatali"
-#define S_NOREPLY "Yanit yok"
-#define S_LOADING  "Yazicilar okunuyor"
-#define S_SOUND_ON  "Ses: ACIK"
-#define S_SOUND_OFF "Ses: KAPALI"
-#define S_NO_BUZZER "Buzzer yok"
-#define S_AUTO_ON  "Oto gecis: ACIK"
-#define S_AUTO_OFF "Oto gecis: KAPALI"
-#define S_SPEED    "Hiz"
-#define S_NOZZLE   "Nozul"
-#define S_FILAMENT "Filament"
-#define S_ERR_NONE "Hata yok"
-#define U_HOUR "s"
-#define U_MIN  "d"
-#else
-#define S_LEFT    "Left"
-#define S_ELAPSED "Elapsed"
-#define S_ETA     "ETA"
-#define S_READY   "Ready"
-#define S_ERROR   "Error"
-#define S_WIFI    "Connecting WiFi"
-#define S_NODATA  "Waiting for data"
-#define S_BADCODE "Wrong access code"
-#define S_NOREPLY "No reply"
+// On-screen text. English only; keep every label short: the display is about 21 characters wide.
+#define S_LEFT     "Left"
+#define S_ELAPSED  "Elapsed"
+#define S_ETA      "ETA"
+#define S_READY    "Ready"
+#define S_ERROR    "Error"
+#define S_WIFI     "Connecting WiFi"
+#define S_NODATA   "Waiting for data"
+#define S_BADCODE  "Wrong access code"
+#define S_NOREPLY  "No reply"
 #define S_LOADING  "Reading printers"
 #define S_SOUND_ON  "Sound: ON"
 #define S_SOUND_OFF "Sound: OFF"
@@ -48,12 +26,9 @@
 #define S_AUTO_ON  "Auto cycling: ON"
 #define S_AUTO_OFF "Auto cycling: OFF"
 #define S_SPEED    "Speed"
-#define S_NOZZLE   "Nozzle"
-#define S_FILAMENT "Filament"
 #define S_ERR_NONE "No errors"
 #define U_HOUR "h"
 #define U_MIN  "m"
-#endif
 
 namespace {
 
@@ -202,6 +177,16 @@ bool justFinished(const PrinterStatus& s) {
 
 // The printer cannot be reached right now: what is shown is its last known state.
 bool isStale(const PrinterStatus& s) { return s.link == Link::Offline || s.link == Link::AuthFailed; }
+
+// The status the screens draw. A finished job is only "DONE" (and flashing) for DONE_ALERT_MS after the
+// finish was seen live; after that, and for a printer that was already finished at power-up, it is
+// simply idle, so a printer that is idle on purpose does not keep drawing the eye.
+PrinterStatus snapshot(int idx) {
+  PrinterStatus s = state::get(idx);
+  if (s.phase == Phase::Finished && (s.finishedAtMs == 0 || millis() - s.finishedAtMs >= DONE_ALERT_MS))
+    s.phase = Phase::Idle;
+  return s;
+}
 
 // ---- Views -----------------------------------------------------------------------------
 
@@ -369,7 +354,7 @@ void drawOverviewView(int selected) {
   const int n = printerCount();
   for (int i = 0; i < n && i < 6; i++) {
     const PrinterConfig& pc = config::printer(i);
-    const PrinterStatus s = state::get(i);
+    const PrinterStatus s = snapshot(i);
     const int x = (i % 3) * 43;
     const int y = (i / 3) * 16;
 
@@ -601,9 +586,9 @@ void render() {
   } else {
     const int idx = constrain(g_sel, 0, printerCount() - 1);
     switch (g_view) {
-      case View::Progress: drawProgressView(idx, state::get(idx)); break;
-      case View::Details: drawDetailsView(idx, state::get(idx)); break;
-      case View::Info: drawInfoView(idx, state::get(idx)); break;
+      case View::Progress: drawProgressView(idx, snapshot(idx)); break;
+      case View::Details: drawDetailsView(idx, snapshot(idx)); break;
+      case View::Info: drawInfoView(idx, snapshot(idx)); break;
       case View::Overview: drawOverviewView(idx); break;
     }
   }

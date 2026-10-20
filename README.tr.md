@@ -55,7 +55,7 @@ Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama
 - Başka ağdaki yazıcılar için doğrulanmış TLS bağlantılı **bulut modu**.
 - İsteğe bağlı **buzzer**, biten ve hata veren baskıları duyurur (aktif ya da pasif buzzer; susturmak için düğme butonunu 2,5 sn basılı tutun).
 - Hata başlığı **yanıp söner**, biten baskının durum etiketi de; boştaki bir yazıcı grubu ekranı **kapatır** (OLED yanması için) ve bir şey olunca uyanır.
-- Türkçe ya da İngilizce etiketler (`UI_LANG_TR`), ayarlanabilir pinler, süreler ve saat dilimi.
+- Ayarlanabilir pinler, süreler ve saat dilimi.
 - Hiç yazıcı olmadan tüm ekranları görmek için sahte yazıcılı **demo yazılımı**.
 - Yazıcıları bulan ve erişim kodlarını okuyan iki küçük Python aracı.
 
@@ -72,14 +72,14 @@ Tek **tıklama** dört ekranı sırayla gezdirir: **İlerleme → Genel bakış 
 | Çok uzun basış (2,5 sn) | Ses **açık / kapalı** (buzzer gerekir) |
 | Ekran kapalıyken dokunmak | Ekranı uyandırır (dokunuş başka bir şey yapmaz) |
 
-Aşağıdaki çizimler yerleşim taslağıdır, fotoğraf değildir. Gerçek ekran 128x32 pikseldir, yaklaşık 21 karakter genişliğinde.
+Ekrandaki tüm metinler İngilizcedir. Aşağıdaki çizimler yerleşim taslağıdır, fotoğraf değildir. Gerçek ekran 128x32 pikseldir, yaklaşık 21 karakter genişliğinde.
 
 **İlerleme**: ana ekran.
 
 ```
-Garaj A1                 RUN
+Garage A1                RUN
 [=========-----------]   42%
-Kalan 3s26d Geçen 2s29d
+Left 3h26m Elapsed 2h29m
 ```
 
 Üstte ad ve durum etiketi, yüzdeli ilerleme çubuğu, altında kalan ve geçen süre. Yazıcı baskıya hazırlanırken son satırda ne yaptığı görünür (*Heating bed*, *Bed leveling*, *Cleaning nozzle*...). Biten baskıda ne kadar sürdüğü, boştaki yazıcıda sıcaklıkları görünür.
@@ -98,9 +98,9 @@ Her hücrede kısa ad (`shortName`, en çok 5 karakter), yüzde ya da durum söz
 **Detay**
 
 ```
-Garaj A1            L118/290
+Garage A1           L118/290
 N220/220 B65/65 C31
-Bitis 17:42           -46dBm
+ETA 17:42             -46dBm
 altbaski.stl + altbaski.stl +
 ```
 
@@ -109,19 +109,19 @@ Katman, nozul / tabla / hazne sıcaklığı (hedef eğik çizgiden sonra; hazne 
 **Bilgi**
 
 ```
-Garaj A1                 RUN
-Hiz Standard 100%
+Garage A1                RUN
+Speed Standard 100%
 Fan 66% 0.4mm PLA
-Hata yok
+No errors
 ```
 
 Hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament (AMS yuvasından ya da harici makaradan) ve son satırda: hata kodu, yazıcının o anki aşaması ya da etkin HMS uyarılarının sayısı.
 
-**İş bitince.** Bir yazıcının işi bittiğinde `DONE` etiketi İlerleme ekranında sağ üst köşede, genel bakışta ise hücresi yanıp söner; yazıcı yeni bir işe başlayana kadar sürer. Hata ise başlığın tamamını yanıp söndürür.
+**İş bitince.** Bir yazıcı bir işi bitirdiğinde `DONE` etiketi İlerleme ekranında sağ üst köşede, genel bakışta ise hücresi 5 dakika boyunca (`DONE_ALERT_MS`) yanıp söner. Ardından yazıcı sabit `IDLE` gösterir; böylece bilerek boşta bırakılmış bir yazıcı gözünüzü yormaz. Cihaz açıldığında zaten bitmiş olan yazıcı hemen `IDLE` gösterir: ne zaman bittiğini bilmenin yolu yok. Hata ise başlığın tamamını yanıp söndürür ve sürdürür.
 
 **Son bilinen veri.** Bir yazıcı yanıt vermeyi bırakırsa (`OFF`) ya da bilgileri reddedilirse (`AUTH`) son bilinen değerler ekranda kalır: etiket neyin yanlış olduğunu gösterir, ilerleme çubukları noktalı olur. Tam ekran mesajı yalnızca hiç veri vermemiş bir yazıcı için çıkar.
 
-**Açılış.** İlk gördüğünüz *Yazicilar okunuyor 3/6* ekranıdır: cihaz karusel başlamadan önce her yazıcıyı bir kez okur, böylece hiçbir ekranda "veri bekleniyor" yazması gerekmez.
+**Açılış.** İlk gördüğünüz *Reading printers 3/6* ekranıdır: cihaz karusel başlamadan önce her yazıcıyı bir kez okur, böylece hiçbir ekranda "veri bekleniyor" yazması gerekmez.
 
 **Durum etiketleri**: `RUN` basıyor, `PAUSE`, `PREP` hazırlanıyor, `DONE`, `IDLE`, `ERR` hata ya da hata kodu var, `OFF` erişilemiyor, `AUTH` erişim kodu ya da bulut anahtarı reddedildi, `...` henüz veri yok.
 
@@ -249,7 +249,7 @@ Bambu yazıcıların yaydığı SSDP duyurularını dinler, hesap ya da şifre g
 #define WIFI_PASSWORD "wifi-sifreniz"
 
 static const PrinterConfig PRINTERS[] = {
-    {"Garaj A1",  "GARAJ",  "192.168.1.148", "0300DA000000000", "12345678"},
+    {"Garage A1",  "GARA",  "192.168.1.148", "0300DA000000000", "12345678"},
     //  ad        kısa ad   LAN adresi       seri no            erişim kodu
 };
 ```
@@ -290,7 +290,7 @@ Windows'ta bunu **PowerShell ya da cmd'den, Git Bash'ten değil** çalıştırı
 
 ### 7. Ne görmelisiniz
 
-Açılışta ekranda *WiFi baglaniyor*, sonra ilk yazıcı görünür. Seri günlük (115200 baud) şöyle olur:
+Açılışta ekranda *Connecting WiFi*, sonra ilk yazıcı görünür. Seri günlük (115200 baud) şöyle olur:
 
 ```
 [oled] found at 0x3C (SDA=GPIO4 SCL=GPIO5)
@@ -331,10 +331,10 @@ python tools/fetch_access_codes.py --token --cloud       # --token olmadan: e-po
 | `BUZZER_ACTIVE_LOW` | 0 | Buzzer modülü pin LOW iken ötüyorsa 1 |
 | `ENC_REVERSE` | 0 | Saat yönünde çevirmek geri gidiyorsa 1 yapın |
 | `ENC_EDGES_PER_DETENT` | 4 | Düğmenin bir tıkı bir yazıcı atlıyorsa 2 deneyin |
-| `UI_LANG_TR` | 1 | 1 = Türkçe etiketler, 0 = İngilizce |
 | `TIMEZONE` | `<+03>-3` | Bitiş saati için POSIX saat dilimi, örn. `CET-1CEST,M3.5.0,M10.5.0/3` |
 | `CAROUSEL_MS` | 10000 | Otomatik modda her yazıcının ekranda kalma süresi |
 | `MANUAL_TIMEOUT_MS` | 45000 | Düğmeye dokunulmazsa otomatik mod bu süre sonra devam eder |
+| `DONE_ALERT_MS` | 300000 | Biten iş bu süre boyunca `DONE` yanıp söner, sonra yazıcı sabit `IDLE` gösterir |
 | `SCREEN_SLEEP_MS` | 300000 | Hiçbir şey basılmıyorsa bu süre sonra ekran kapanır; 0 = hiç |
 | `AUTO_LISTEN_MS` | 3500 | Genel bakış modu: her yazıcıyı ne kadar dinlemeli |
 | `FIRST_REPORT_WAIT_MS` | 7000 | Bağlanıp sessiz kalan yazıcıdan vazgeçme süresi |

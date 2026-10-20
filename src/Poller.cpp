@@ -142,10 +142,12 @@ void applyReport(int idx, JsonObjectConst p) {
     s.elapsedMin = (int32_t)((int64_t)s.remainingMin * s.percent / (100 - s.percent));
   }
 
-  // Sound an alert for changes seen live, never for the state a printer was already in at power-up
+  // Alert (and remember when) for changes seen live, never for the state a printer was already in at power-up
+  if (s.phase != Phase::Finished) s.finishedAtMs = 0;
   if (hadData && !g_warm) {
     const bool wasBusy = oldPhase == Phase::Running || oldPhase == Phase::Paused || oldPhase == Phase::Prepare;
     if (s.phase == Phase::Finished && wasBusy) {
+      s.finishedAtMs = millis();  // the UI flashes DONE for DONE_ALERT_MS, then shows IDLE
       buzzer::play(buzzer::Sound::Finished);
     } else if ((s.phase == Phase::Failed && oldPhase != Phase::Failed) || (s.printError != 0 && oldError == 0)) {
       buzzer::play(buzzer::Sound::Failed);
@@ -578,8 +580,12 @@ void demoTask(void*) {
       if (i == n - 1 && (tick / 25) % 2) s.link = Link::Offline;
       // let the demo exercise the buzzer too
       if (s.phase != prev[i]) {
-        if (s.phase == Phase::Finished) buzzer::play(buzzer::Sound::Finished);
-        else if (s.phase == Phase::Failed) buzzer::play(buzzer::Sound::Failed);
+        if (s.phase == Phase::Finished) {
+          s.finishedAtMs = millis();
+          buzzer::play(buzzer::Sound::Finished);
+        } else if (s.phase == Phase::Failed) {
+          buzzer::play(buzzer::Sound::Failed);
+        }
         prev[i] = s.phase;
       }
     }

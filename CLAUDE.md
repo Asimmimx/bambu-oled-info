@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Firmware for an ESP32-C3 + SSD1306 128x32 OLED + KY-040 knob (+ optional buzzer) that shows the live status of up to 8 Bambu Lab printers. Public repo `Asimmimx/bambu-oled-info`. The maintainer writes in Turkish; code, commits and docs are English, and the README exists twice (`README.md`, `README.tr.md`): change both.
+Firmware for an ESP32-C3 + SSD1306 128x32 OLED + KY-040 knob (+ optional buzzer) that shows the live status of up to 8 Bambu Lab printers. Public repo `Asimmimx/bambu-oled-info`. The maintainer writes in Turkish; code, commits, docs and all on-screen text are English (no language switch), and the README exists twice (`README.md`, `README.tr.md`): change both.
 
 ## Commands
 
@@ -35,7 +35,7 @@ Two tasks share one table. `Poller.cpp` owns the network in its own FreeRTOS tas
 
 **Reading reports.** Printers (A1 family) send only *changed* fields, so `applyReport()` merges into the cached `PrinterStatus`; a full status is requested with `pushall` on the first visit and then at most every `PUSHALL_MIN_INTERVAL_MS` (Bambu warns the printer CPU lags otherwise). Messages are parsed through an ArduinoJson filter (`buildFilter`): to read a new field, add it to the filter, to `PrinterStatus` and to `applyReport`. There is deliberately no printer-model table; the model-agnostic policy is the conservative one. Elapsed time is not reported by printers and is estimated from percent and time left.
 
-**UI rules that span `Ui.cpp`.** The `View` enum order is the click order. Every view must cope with: no data yet (`!hasData()` gets the full-screen message), stale data (`isStale()`: last values stay, the tag shows `OFF`/`AUTH`, bars are dotted), and `justFinished()` (flashes the state tag / overview cell). The OLED font has no `ş ı ğ İ`: file names go through `sanitizeName()` on ingest, printer names come straight from `secrets.h`.
+**UI rules that span `Ui.cpp`.** The `View` enum order is the click order. Every view must cope with: no data yet (`!hasData()` gets the full-screen message), stale data (`isStale()`: last values stay, the tag shows `OFF`/`AUTH`, bars are dotted), and `justFinished()` (flashes the state tag / overview cell). Views never read `state::get()` directly but `snapshot()`, which turns a `Finished` that is older than `DONE_ALERT_MS` (or was never seen live: `finishedAtMs == 0`) into `Idle`. The OLED font has no `ş ı ğ İ`: file names go through `sanitizeName()` on ingest, printer names come straight from `secrets.h`.
 
 **Buzzer.** Alerts are raised in `applyReport()` from live phase changes only (never for a state found at power-up or during `warmup()`); `buzzer::update()` plays patterns non-blockingly from `loop()`. The demo task raises them too.
 

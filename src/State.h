@@ -34,6 +34,7 @@ struct PrinterStatus {
   char nozzleDia[6] = "";     // "0.4"
   char file[40] = "";         // subtask_name (falls back to gcode_file)
   uint32_t updatedMs = 0;     // millis() of the last report, 0 = never
+  uint32_t finishedAtMs = 0;  // millis() when a finish was seen live, 0 = not seen live (see Ui.cpp snapshot())
 
   bool hasData() const { return updatedMs != 0; }
   bool active() const { return phase == Phase::Running || phase == Phase::Paused || phase == Phase::Prepare; }

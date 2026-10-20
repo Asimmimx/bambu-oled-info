@@ -55,7 +55,7 @@ Other models should work in principle, because the status protocol is the same, 
 - **Cloud mode** for printers on another network, with a verified TLS connection.
 - An optional **buzzer** announces finished and failed prints (active or passive buzzer; hold the knob button 2.5 s to mute).
 - Errors **flash** the header, and a finished print flashes its state tag; an idle farm **switches the screen off** (OLED burn-in) and wakes up when something happens.
-- English or Turkish labels (`UI_LANG_TR`), configurable pins, timings and time zone.
+- Configurable pins, timings and time zone.
 - **Demo build** with fake printers to preview every screen without any printer.
 - Two small Python tools to find your printers and read their access codes.
 
@@ -72,7 +72,7 @@ A single **click** steps through four screens: **Progress → Overview → Detai
 | Very long press (2.5 s) | Sound **on / off** (needs a buzzer) |
 | Any touch while the screen is off | Wakes the screen (the touch is not used for anything else) |
 
-The sketches below are layouts, not photographs. The real display is 128x32 pixels, about 21 characters wide.
+All on-screen text is English. The sketches below are layouts, not photographs. The real display is 128x32 pixels, about 21 characters wide.
 
 **Progress**: the main screen.
 
@@ -117,7 +117,7 @@ No errors
 
 Speed mode and percentage, part-cooling fan, nozzle diameter, the filament in use (from the AMS slot or the external spool), and the last line: an error code, the printer's current stage, or the number of active HMS notices.
 
-**Job finished.** When a printer's job is done, its `DONE` tag flashes in the top-right corner of the Progress screen, and its cell flashes in the Overview, until the printer starts something new. An error flashes the whole header instead.
+**Job finished.** When a printer finishes a job, its `DONE` tag flashes in the top-right corner of the Progress screen, and its cell flashes in the Overview, for 5 minutes (`DONE_ALERT_MS`). After that the printer shows a steady `IDLE`, so a printer that is idle on purpose does not keep drawing your eye. A printer that was already finished when the device started shows `IDLE` right away: there is no way to tell when it finished. An error flashes the whole header and keeps doing so.
 
 **Last known data.** If a printer stops answering (`OFF`) or its credentials are rejected (`AUTH`), its last known values stay on screen: the tag shows what is wrong and the progress bars turn dotted. A full-screen message only appears for a printer that never reported anything.
 
@@ -331,10 +331,10 @@ python tools/fetch_access_codes.py --token --cloud       # or without --token to
 | `BUZZER_ACTIVE_LOW` | 0 | 1 if the buzzer module sounds when the pin is LOW |
 | `ENC_REVERSE` | 0 | Set to 1 if turning clockwise moves backwards |
 | `ENC_EDGES_PER_DETENT` | 4 | Try 2 if one click of the knob skips a printer |
-| `UI_LANG_TR` | 1 | 1 = Turkish labels, 0 = English |
 | `TIMEZONE` | `<+03>-3` | POSIX time zone for the finish clock, e.g. `CET-1CEST,M3.5.0,M10.5.0/3` |
 | `CAROUSEL_MS` | 10000 | Time each printer stays on screen in auto mode |
 | `MANUAL_TIMEOUT_MS` | 45000 | Auto mode resumes after this long without touching the knob |
+| `DONE_ALERT_MS` | 300000 | A finished job flashes `DONE` this long, then the printer shows a steady `IDLE` |
 | `SCREEN_SLEEP_MS` | 300000 | Screen off after this long with nothing printing; 0 = never |
 | `AUTO_LISTEN_MS` | 3500 | Overview mode: how long to listen to each printer |
 | `FIRST_REPORT_WAIT_MS` | 7000 | Give up on a printer that connects but stays silent |
