@@ -1,12 +1,14 @@
 #include "Ui.h"
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <WiFi.h>
 #include <Wire.h>
 #include <time.h>
 #include "Buzzer.h"
 #include "Config.h"
 #include "Poller.h"
 #include "State.h"
+#include "Web.h"
 #include "settings.h"
 
 // On-screen text. English only; keep every label short: the display is about 21 characters wide.
@@ -46,10 +48,12 @@ uint32_t g_lastInput = 0;
 uint32_t g_carouselAt = 0;  // when the current printer came on screen (auto mode)
 uint32_t g_lastActive = 0;
 bool g_asleep = false;
+bool g_forcedSleep = false;
 uint32_t g_lastFrame = 0;
 uint32_t g_frame = 0;
 char g_toast[24] = "";
 uint32_t g_toastUntil = 0;
+volatile int g_alertJump = -1;
 
 int printerCount() { return (int)config::printerCount(); }
 
@@ -183,7 +187,8 @@ bool isStale(const PrinterStatus& s) { return s.link == Link::Offline || s.link 
 // simply idle, so a printer that is idle on purpose does not keep drawing the eye.
 PrinterStatus snapshot(int idx) {
   PrinterStatus s = state::get(idx);
-  if (s.phase == Phase::Finished && (s.finishedAtMs == 0 || millis() - s.finishedAtMs >= DONE_ALERT_MS))
+  const uint32_t doneMs = (uint32_t)config::settings().doneAlertSec * 1000UL;
+  if (s.phase == Phase::Finished && (s.finishedAtMs == 0 || millis() - s.finishedAtMs >= doneMs))
     s.phase = Phase::Idle;
   return s;
 }
@@ -336,10 +341,11 @@ void drawInfoView(int idx, const PrinterStatus& s) {
   if (*s.filament()) n += snprintf(buf + n, sizeof buf - n, "%s%s", n ? " " : "", s.filament());
   u8g2.drawUTF8(0, 16, buf);
 
-  // Row 3: errors win, then what the printer is doing, then HMS notices
+  // Row 3: errors win, then what the printer is doing, then HMS notices, else web IP / no errors
   if (s.needsAttention()) snprintf(buf, sizeof buf, "%s %08lX", S_ERROR, (unsigned long)s.printError);
   else if (*stageName(s.stage) && s.active()) snprintf(buf, sizeof buf, "%s", stageName(s.stage));
   else if (s.hmsCount > 0) snprintf(buf, sizeof buf, "HMS %u", s.hmsCount);
+  else if (WiFi.status() == WL_CONNECTED) snprintf(buf, sizeof buf, "Web %s", WiFi.localIP().toString().c_str());
   else snprintf(buf, sizeof buf, "%s", S_ERR_NONE);
   u8g2.drawUTF8(0, 24, buf);
   if (s.hmsCount > 0 && !s.needsAttention()) {
@@ -477,12 +483,25 @@ void checkDisplayWiring() {
 
 namespace ui {
 
+void applyDisplaySettings() {
+  const DeviceSettings& ds = config::settings();
+  u8g2.setContrast(ds.oledContrast);
+  u8g2.setDisplayRotation(ds.oledFlip ? U8G2_R2 : U8G2_R0);
+  u8g2.setFontPosTop();
+  g_lastFrame = 0;
+}
+
 void begin() {
   checkDisplayWiring();
   u8g2.begin();
   u8g2.setBusClock(400000);
   u8g2.setFontPosTop();
   u8g2.enableUTF8Print();
+  const DeviceSettings& ds = config::settings();
+  g_view = (View)(ds.defaultView % kViewCount);
+  g_autoMode = ds.autoCycle;
+  g_manual = !g_autoMode;
+  applyDisplaySettings();
   g_lastActive = g_carouselAt = millis();
   applyFocus();
 }
@@ -495,8 +514,10 @@ void handle(input::Event e) {
                               : e == input::Event::LongPress ? "long press" : "very long press");
   g_lastInput = now;
   g_lastActive = now;
+  g_forcedSleep = false;
   if (g_asleep) {  // the first touch only wakes the screen
     setSleeping(false);
+    g_lastFrame = 0;
     return;
   }
 
@@ -517,6 +538,8 @@ void handle(input::Event e) {
     case input::Event::LongPress:
       g_autoMode = !g_autoMode;
       g_manual = !g_autoMode;
+      config::settings().autoCycle = g_autoMode;
+      config::saveSettings();
       g_carouselAt = now;
       applyFocus();
       showToast(g_autoMode ? S_AUTO_ON : S_AUTO_OFF);
@@ -533,13 +556,34 @@ void handle(input::Event e) {
     default:
       break;
   }
+  g_lastFrame = 0;
 }
 
 void render() {
   const uint32_t now = millis();
+  const DeviceSettings& ds = config::settings();
+  const uint32_t manualMs = (uint32_t)constrain((int)ds.manualTimeoutSec, 5, 3600) * 1000UL;
+  const uint32_t carouselMs = (uint32_t)constrain((int)ds.carouselSec, 2, 600) * 1000UL;
+  const uint32_t sleepMs = (uint32_t)ds.screenSleepSec * 1000UL;
+
+  const int jump = g_alertJump;
+  if (jump >= 0) {
+    g_alertJump = -1;
+    g_lastActive = now;
+    g_forcedSleep = false;
+    setSleeping(false);
+    if (ds.autoJumpAlert && jump < printerCount()) {
+      g_sel = jump;
+      g_manual = true;
+      g_lastInput = now;
+      if (g_view == View::Overview) g_view = View::Progress;
+      poller::focus(g_sel);
+    }
+    g_lastFrame = 0;
+  }
 
   // Auto-resume the carousel after the knob has been idle for a while
-  if (g_manual && g_autoMode && now - g_lastInput > MANUAL_TIMEOUT_MS) {
+  if (g_manual && g_autoMode && now - g_lastInput > manualMs) {
     g_manual = false;
     g_carouselAt = now;
     applyFocus();
@@ -552,7 +596,7 @@ void render() {
       // Highlight whichever printer the poller is visiting right now
       const int v = poller::visiting();
       if (v >= 0 && v < n) g_sel = v;
-    } else if (n > 1 && now - g_carouselAt >= CAROUSEL_MS) {
+    } else if (n > 1 && now - g_carouselAt >= carouselMs) {
       g_carouselAt = now;
       g_sel = (g_sel + 1) % n;
       poller::focus(g_sel);
@@ -561,9 +605,13 @@ void render() {
   }
 
   if (anyActive()) g_lastActive = now;
-  if (SCREEN_SLEEP_MS > 0) {
-    if (now - g_lastActive > SCREEN_SLEEP_MS) setSleeping(true);
+  if (g_forcedSleep) {
+    setSleeping(true);
+  } else if (sleepMs > 0) {
+    if (now - g_lastActive > sleepMs) setSleeping(true);
     else setSleeping(false);
+  } else {
+    setSleeping(false);
   }
   if (g_asleep) return;
 
@@ -573,14 +621,27 @@ void render() {
 
   u8g2.clearBuffer();
   u8g2.setDrawColor(1);
-  if (printerCount() == 0) {
+  if (!state::wifiUp()) {
+    if (web::apActive()) {
+      u8g2.setFont(u8g2_font_5x8_tf);
+      drawCentered(0, "WiFi Setup AP:");
+      drawCentered(11, web::kApSsid);
+      drawCentered(22, "http://192.168.4.1");
+    } else {
+      u8g2.setFont(u8g2_font_6x10_tf);
+      drawCentered(4, S_WIFI);
+      u8g2.setFont(u8g2_font_5x8_tf);
+      drawCentered(18, config::wifiSsid());
+    }
+  } else if (printerCount() == 0) {
     u8g2.setFont(u8g2_font_6x10_tf);
-    drawCentered(11, "No printers");
-  } else if (!state::wifiUp()) {
-    u8g2.setFont(u8g2_font_6x10_tf);
-    drawCentered(4, S_WIFI);
-    u8g2.setFont(u8g2_font_5x8_tf);
-    drawCentered(18, config::wifiSsid());
+    drawCentered(4, "No printers");
+    if (WiFi.status() == WL_CONNECTED) {
+      char url[32];
+      snprintf(url, sizeof url, "http://%s", WiFi.localIP().toString().c_str());
+      u8g2.setFont(u8g2_font_5x8_tf);
+      drawCentered(18, url);
+    }
   } else if (poller::warmingUp()) {
     drawWarmup();
   } else {
@@ -593,7 +654,76 @@ void render() {
     }
   }
   if (now < g_toastUntil) drawToast();
+  if (ds.oledInvert) {
+    u8g2.setDrawColor(2);
+    u8g2.drawBox(0, 0, 128, 32);
+    u8g2.setDrawColor(1);
+  }
   u8g2.sendBuffer();
+}
+
+int selectedPrinter() { return g_sel; }
+
+void selectPrinter(int idx) {
+  const int n = printerCount();
+  if (n <= 0) return;
+  g_sel = constrain(idx, 0, n - 1);
+  g_manual = true;
+  g_forcedSleep = false;
+  g_lastInput = g_lastActive = millis();
+  setSleeping(false);
+  poller::focus(g_sel);
+  g_lastFrame = 0;
+}
+
+uint8_t currentView() { return (uint8_t)g_view; }
+
+void setView(uint8_t v) {
+  g_view = (View)(v % kViewCount);
+  g_forcedSleep = false;
+  g_carouselAt = g_lastActive = millis();
+  setSleeping(false);
+  applyFocus();
+  g_lastFrame = 0;
+}
+
+bool autoMode() { return g_autoMode; }
+
+void setAutoMode(bool on) {
+  g_autoMode = on;
+  g_manual = !on;
+  g_forcedSleep = false;
+  config::settings().autoCycle = on;
+  g_carouselAt = g_lastActive = millis();
+  setSleeping(false);
+  applyFocus();
+  g_lastFrame = 0;
+}
+
+bool sleeping() { return g_asleep; }
+
+void wake() {
+  g_forcedSleep = false;
+  g_lastActive = millis();
+  setSleeping(false);
+  g_lastFrame = 0;
+}
+
+void sleepNow() {
+  g_forcedSleep = true;
+  setSleeping(true);
+}
+
+void toast(const char* text) {
+  g_forcedSleep = false;
+  g_lastActive = millis();
+  setSleeping(false);
+  showToast(text);
+  g_lastFrame = 0;
+}
+
+void notifyAlert(int idx) {
+  g_alertJump = idx;
 }
 
 }  // namespace ui

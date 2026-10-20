@@ -8,6 +8,8 @@
 #include "Buzzer.h"
 #include "Config.h"
 #include "State.h"
+#include "Ui.h"
+#include "Web.h"
 #include "settings.h"
 
 namespace {
@@ -149,8 +151,10 @@ void applyReport(int idx, JsonObjectConst p) {
     if (s.phase == Phase::Finished && wasBusy) {
       s.finishedAtMs = millis();  // the UI flashes DONE for DONE_ALERT_MS, then shows IDLE
       buzzer::play(buzzer::Sound::Finished);
+      ui::notifyAlert(idx);
     } else if ((s.phase == Phase::Failed && oldPhase != Phase::Failed) || (s.printError != 0 && oldError == 0)) {
       buzzer::play(buzzer::Sound::Failed);
+      ui::notifyAlert(idx);
     }
   }
 
@@ -210,21 +214,43 @@ void buildFilter() {
 
 void ensureWifi() {
   if (WiFi.status() == WL_CONNECTED) {
+    if (web::apActive() && WiFi.softAPgetStationNum() == 0) {
+      WiFi.softAPdisconnect(true);
+      WiFi.mode(WIFI_STA);
+      web::setApActive(false);
+      Serial.println("[wifi] STA connected, setup AP closed");
+    }
     state::setWifiUp(true);
     return;
   }
   state::setWifiUp(false);
-  Serial.printf("[wifi] connecting to %s\n", config::wifiSsid());
-  WiFi.disconnect();
-  WiFi.begin(config::wifiSsid(), config::wifiPassword());
-  const uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000) vTaskDelay(pdMS_TO_TICKS(200));
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("[wifi] up, ip %s, rssi %d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
-    configTzTime(TIMEZONE, "pool.ntp.org", "time.cloudflare.com");
-    state::setWifiUp(true);
-  } else {
+
+  // Do not hop channels while a user is connected to the setup AP
+  if (web::apActive() && WiFi.softAPgetStationNum() > 0) return;
+
+  const char* ssid = config::wifiSsid();
+  if (*ssid && strcmp(ssid, "your-wifi-name") != 0) {
+    Serial.printf("[wifi] connecting to %s\n", ssid);
+    WiFi.disconnect();
+    WiFi.begin(ssid, config::wifiPassword());
+    const uint32_t t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) vTaskDelay(pdMS_TO_TICKS(200));
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.printf("[wifi] up, ip %s (web: http://%s), rssi %d\n", WiFi.localIP().toString().c_str(),
+                    WiFi.localIP().toString().c_str(), WiFi.RSSI());
+      configTzTime(config::settings().timezone, "pool.ntp.org", "time.cloudflare.com");
+      state::setWifiUp(true);
+      return;
+    }
     Serial.println("[wifi] failed, will retry");
+  }
+
+  if (!web::apActive()) {
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP(web::kApSsid);
+    web::setApActive(true);
+    Serial.printf("[wifi] setup AP started: SSID=\"%s\" url=http://%s\n", web::kApSsid,
+                  WiFi.softAPIP().toString().c_str());
   }
 }
 
@@ -450,6 +476,7 @@ Visit visit(int idx) { return config::isCloud(idx) ? visitCloud(idx) : visitLoca
 int pickNext(int last) {
   const uint32_t now = millis();
   const int n = (int)config::printerCount();
+  if (n <= 0) return -1;
   const int focus = g_focus;
   if (focus >= 0 && focus < n) {
     if (now - g_focusSetMs < FOCUS_SETTLE_MS) return -1;  // let the knob settle

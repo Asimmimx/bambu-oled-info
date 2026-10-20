@@ -53,9 +53,14 @@ Other models should work in principle, because the status protocol is the same, 
 - Works with printers that send **partial** status (A1 family) as well as full status.
 - **Finish clock** ("done at 17:42"), from the printer's remaining time and NTP.
 - **Cloud mode** for printers on another network, with a verified TLS connection.
-- An optional **buzzer** announces finished and failed prints (active or passive buzzer; hold the knob button 2.5 s to mute).
+- An optional **buzzer** announces finished and failed prints (active or passive buzzer, multiple melodies + custom melody composer, live sound tester; hold the knob button 2.5 s or use the web panel to mute).
 - Errors **flash** the header, and a finished print flashes its state tag; an idle farm **switches the screen off** (OLED burn-in) and wakes up when something happens.
 - Configurable pins, timings and time zone.
+- **Built-in web control panel** (`http://<device-ip>` or fallback setup AP `BambuMonitor-Setup` at `http://192.168.4.1`):
+  - **Live dashboard & remote OLED control**: see all printers live in your browser, click a printer card to focus it on the OLED, switch OLED views, toggle auto-cycling/sleep, or send a toast message to the screen.
+  - **Sound & melody studio**: test sounds live, choose from 5 finish melodies and 4 error melodies, compose custom melodies (`freq:ms`), and switch active/passive buzzer mode or polarity without re-flashing.
+  - **Display, knob & timers**: adjust OLED brightness (contrast), flip 180°, invert colors, reverse knob direction, set step sensitivity, timings and time zone live.
+  - **Wi-Fi, printers & Bambu Cloud**: manage up to 8 LAN/Cloud printers and update the Bambu Cloud token in NVS flash.
 - **Demo build** with fake printers to preview every screen without any printer.
 - Two small Python tools to find your printers and read their access codes.
 
@@ -112,10 +117,10 @@ Layer, nozzle / bed / chamber temperatures (target after the slash; the chamber 
 Garage A1                RUN
 Speed Standard 100%
 Fan 66% 0.4mm PLA
-No errors
+Web 192.168.1.167
 ```
 
-Speed mode and percentage, part-cooling fan, nozzle diameter, the filament in use (from the AMS slot or the external spool), and the last line: an error code, the printer's current stage, or the number of active HMS notices.
+Speed mode and percentage, part-cooling fan, nozzle diameter, the filament in use (from the AMS slot or the external spool), and the last line: an error code, the printer's current stage, the number of active HMS notices, or the device's web panel IP address (`Web 192.168.x.x`).
 
 **Job finished.** When a printer finishes a job, its `DONE` tag flashes in the top-right corner of the Progress screen, and its cell flashes in the Overview, for 5 minutes (`DONE_ALERT_MS`). After that the printer shows a steady `IDLE`, so a printer that is idle on purpose does not keep drawing your eye. A printer that was already finished when the device started shows `IDLE` right away: there is no way to tell when it finished. An error flashes the whole header and keeps doing so.
 
@@ -203,9 +208,10 @@ If your buzzer can only play a single note, it is an **active** one. That is the
 | Print failed or an error code appears | four beeps | four alternating notes, high and low |
 
 - Only changes seen **live** are announced: a printer that was already finished or failed when the device started stays quiet, and "finished" means the printer was printing, paused or preparing before. In auto mode every printer is visited about once a minute, so an alert for a printer that is not on screen can arrive up to about a minute late.
-- Hold the knob button for **2.5 seconds** to turn the sound off or on (a message shows the new state; it is not remembered after a restart).
-- The demo build (`pio run -e demo -t upload`) plays the sounds as its fake printers finish and fail, which is the easy way to try your wiring.
-- Settings in `settings.h`: `PIN_BUZZER` (`-1` = no buzzer), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
+- Hold the knob button for **2.5 seconds** (or use the web panel) to turn the sound off or on; the mute state is saved in NVS and remembered after a restart.
+- From the **Sound & Melody Studio** tab in the web panel (`http://<device-ip>`), you can test sounds live, switch between active and passive buzzer modes or invert polarity (`Active-LOW`), choose from **5 finish melodies** and **4 error melodies**, or compose your own custom melody (`freq:ms, 0:pause, ...`).
+- The demo build (`pio run -e demo -t upload`) plays the sounds as its fake printers finish and fail, which is an easy way to try your wiring offline.
+- Compile-time defaults in `settings.h`: `PIN_BUZZER` (`-1` = no buzzer), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
 
 ## Setup, step by step
 
@@ -400,7 +406,7 @@ The fields used (all under `print`): `gcode_state`, `mc_percent`, `mc_remaining_
 - **Back-off.** An unreachable printer is retried every 60 s (8 s while it is on screen). Rejected credentials are retried at most once a minute, and looking at such a printer does not bring the retry forward.
 - **TLS.** Printers use self-signed certificates on your LAN, which are accepted as they are. The cloud server's certificate is checked against the built-in Mozilla CA bundle before the token is sent.
 - **File names** are converted to ASCII for the display font: Turkish letters are folded (ğ → g) and anything unsupported becomes `?`.
-- **Memory.** About 100 KB of heap stays free while connected (minimum seen: 84 KB); the firmware is about 1.2 MB in a 3 MB partition (no OTA).
+- **Memory.** About 100 KB of heap stays free while connected (minimum seen: 84 KB); the firmware is about 1.3 MB in a 3 MB partition (no OTA).
 - **Screen sleep.** If no printer is printing, paused, preparing or in error for 5 minutes, the screen turns off; a knob touch or new activity wakes it.
 - **Boot diagnostics.** The log says where the display answered (`[oled] found at 0x3C ...`) and, if it is silent on the configured pins, scans all other pin pairs to tell you where it is wired.
 
@@ -411,7 +417,8 @@ platformio.ini            build environments (esp32c3, demo), platform and flash
 include/settings.h        pins, timings, language, time zone
 include/secrets.example.h template for your git-ignored secrets.h
 src/main.cpp              setup + loop, periodic status line
-src/Config.*              printer list and credentials (reads secrets.h)
+src/Config.*              printer list and credentials (NVS + secrets.h defaults)
+src/Web.*                 built-in HTTP configuration page and captive-portal AP
 src/State.*               shared status table (mutex-protected)
 src/Poller.*              MQTT sessions, parsing, back-off, cloud, demo data
 src/Input.*               knob decoding (interrupts) and button (click / long / very long press)
@@ -469,9 +476,8 @@ It makes a backup (`secrets.h.bak`), prints a table of your printers, and **neve
 ## Limitations and ideas
 
 - Only a few models were tested, see [Status](#status).
-- Settings are compiled in; there is no web setup page yet. A captive-portal setup that stores Wi-Fi and printers in flash would make the project easier to share.
-- The cloud token cannot be refreshed by the device (Bambu's refresh endpoint is unusable), so it needs a re-flash every ~3 months. A configuration page would remove that too.
-- No over-the-air updates (the large partition replaces the OTA layout).
+- The cloud token cannot be refreshed automatically by the device (Bambu's refresh endpoint is unusable), so it must be updated every ~3 months through the web configuration page (`http://<device-ip>`) or by re-flashing.
+- No over-the-air firmware updates (the large partition replaces the OTA layout).
 - HMS notices are only counted, not decoded; the elapsed time is an estimate.
 - Ideas: an LED when a print finishes, Home Assistant / MQTT output, a bigger display with a list view, per-printer thresholds.
 

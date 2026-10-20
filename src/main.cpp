@@ -1,22 +1,27 @@
 #include <Arduino.h>
 #include "Buzzer.h"
+#include "Config.h"
 #include "Input.h"
 #include "Poller.h"
 #include "State.h"
 #include "Ui.h"
+#include "Web.h"
 #include "settings.h"
 
 void setup() {
   Serial.begin(115200);
   Serial.println("\nBambu print farm monitor");
+  config::begin();
   state::begin();
   input::begin();
   buzzer::begin();
   ui::begin();
   poller::begin();
+  web::begin();
 }
 
 void loop() {
+  web::handle();
   ui::handle(input::poll());
   ui::render();
   buzzer::update();

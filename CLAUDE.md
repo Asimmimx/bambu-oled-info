@@ -39,7 +39,7 @@ Two tasks share one table. `Poller.cpp` owns the network in its own FreeRTOS tas
 
 **Buzzer.** Alerts are raised in `applyReport()` from live phase changes only (never for a state found at power-up or during `warmup()`); `buzzer::update()` plays patterns non-blockingly from `loop()`. The demo task raises them too.
 
-**Config.** `Config.cpp` is the only file that includes `secrets.h` (via `__has_include`, falling back to `secrets.example.h` so a fresh clone builds). `settings.h` has per-chip default pins keyed on `CONFIG_IDF_TARGET_*`. `DEMO_MODE` replaces the poller task with `demoTask` (fake states) and skips the warm-up.
+**Config & Web Portal.** `Config.cpp` is the only file that includes `secrets.h` (via `__has_include`, falling back to `secrets.example.h` so a fresh clone builds) as compile-time defaults, and overrides them with NVS (`Preferences`, namespace `bambu-cfg`) when saved through the web portal (`Web.cpp`, HTTP port 80 on the LAN IP or the fallback `BambuMonitor-Setup` SoftAP at `192.168.4.1`). `settings.h` has per-chip default pins keyed on `CONFIG_IDF_TARGET_*`. `DEMO_MODE` replaces the poller task with `demoTask` (fake states) and skips the warm-up.
 
 ## Platform gotchas
 

@@ -1,5 +1,6 @@
 #include "Input.h"
 #include <Arduino.h>
+#include "Config.h"
 #include "settings.h"
 
 namespace {
@@ -20,11 +21,12 @@ void IRAM_ATTR onEdge() {
   const uint8_t b = digitalRead(PIN_ENC_DT);
   const uint8_t ab = ((g_ab << 2) | (a << 1) | b) & 0x0F;
   g_ab = ab;
+  const int8_t edges = (int8_t)constrain((int)config::settings().encEdges, 1, 8);
   int8_t acc = g_acc + kStep[ab];
-  if (acc >= ENC_EDGES_PER_DETENT) {
+  if (acc >= edges) {
     acc = 0;
     g_detents = g_detents + 1;
-  } else if (acc <= -ENC_EDGES_PER_DETENT) {
+  } else if (acc <= -edges) {
     acc = 0;
     g_detents = g_detents - 1;
   }
@@ -57,7 +59,7 @@ Event poll() {
   else if (d < 0) g_detents = d + 1;
   interrupts();
   if (d != 0) {
-    const bool right = (d > 0) != (ENC_REVERSE != 0);
+    const bool right = (d > 0) != config::settings().encReverse;
     return right ? Event::Right : Event::Left;
   }
 

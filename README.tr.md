@@ -53,9 +53,14 @@ Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama
 - **Kısmi** durum gönderen yazıcılarla (A1 ailesi) ve tam durum gönderenlerle çalışır.
 - **Bitiş saati** ("17:42'de biter"): yazıcının kalan süresi ve NTP ile hesaplanır.
 - Başka ağdaki yazıcılar için doğrulanmış TLS bağlantılı **bulut modu**.
-- İsteğe bağlı **buzzer**, biten ve hata veren baskıları duyurur (aktif ya da pasif buzzer; susturmak için düğme butonunu 2,5 sn basılı tutun).
+- İsteğe bağlı **buzzer**, biten ve hata veren baskıları duyurur (aktif ya da pasif buzzer, hazır melodiler + özel melodi tasarımcısı, canlı ses testi; susturmak için düğme butonunu 2,5 sn basılı tutun ya da web panelini kullanın).
 - Hata başlığı **yanıp söner**, biten baskının durum etiketi de; boştaki bir yazıcı grubu ekranı **kapatır** (OLED yanması için) ve bir şey olunca uyanır.
 - Ayarlanabilir pinler, süreler ve saat dilimi.
+- **Dahili web kontrol paneli** (`http://<cihaz-ip>` veya Wi-Fi yoksa `BambuMonitor-Setup` kurulum ağı üzerinden `http://192.168.4.1`):
+  - **Canlı durum & uzaktan OLED kontrolü**: tüm yazıcıları tarayıcıda canlı izleyin, bir yazıcı kartına tıklayarak OLED ekranı o yazıcıya odaklayın, ekran sayfalarını değiştirin, otomatik geçişi/uyku modunu yönetin veya OLED ekrana anlık mesaj (toast) gönderin.
+  - **Ses & melodi stüdyosu**: sesleri anında test edin, 5 bitiş melodisi ve 4 hata melodisi arasından seçim yapın, kendi özel melodinizi (`frekans:süre`) tasarlayın, aktif/pasif buzzer modunu ve sinyal yönünü yeniden yükleme yapmadan değiştirin.
+  - **Ekran, düğme & zamanlayıcılar**: OLED parlaklığını (contrast), 180° ekran döndürmeyi, ters renk modunu, enkoder yönünü/hassasiyetini, geçiş sürelerini ve saat dilimini canlı ayarlayın.
+  - **Wi-Fi, yazıcılar & Bambu Cloud**: 8 yazıcıya kadar LAN/Cloud listesini ve Bambu Cloud anahtarını kalıcı hafızada (NVS) yönetin.
 - Hiç yazıcı olmadan tüm ekranları görmek için sahte yazıcılı **demo yazılımı**.
 - Yazıcıları bulan ve erişim kodlarını okuyan iki küçük Python aracı.
 
@@ -112,10 +117,10 @@ Katman, nozul / tabla / hazne sıcaklığı (hedef eğik çizgiden sonra; hazne 
 Garage A1                RUN
 Speed Standard 100%
 Fan 66% 0.4mm PLA
-No errors
+Web 192.168.1.167
 ```
 
-Hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament (AMS yuvasından ya da harici makaradan) ve son satırda: hata kodu, yazıcının o anki aşaması ya da etkin HMS uyarılarının sayısı.
+Hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament (AMS yuvasından ya da harici makaradan) ve son satırda: hata kodu, yazıcının o anki aşaması, etkin HMS uyarılarının sayısı ya da cihazın web paneli IP adresi (`Web 192.168.x.x`).
 
 **İş bitince.** Bir yazıcı bir işi bitirdiğinde `DONE` etiketi İlerleme ekranında sağ üst köşede, genel bakışta ise hücresi 5 dakika boyunca (`DONE_ALERT_MS`) yanıp söner. Ardından yazıcı sabit `IDLE` gösterir; böylece bilerek boşta bırakılmış bir yazıcı gözünüzü yormaz. Cihaz açıldığında zaten bitmiş olan yazıcı hemen `IDLE` gösterir: ne zaman bittiğini bilmenin yolu yok. Hata ise başlığın tamamını yanıp söndürür ve sürdürür.
 
@@ -203,9 +208,10 @@ Buzzer'ınız yalnızca tek bir nota çalıyorsa **aktif** buzzer'dır. Varsayı
 | Baskı hata verdi ya da hata kodu çıktı | dört bip | dört dönüşümlü nota, yüksek ve alçak |
 
 - Yalnızca **canlı** görülen değişiklikler duyurulur: cihaz açıldığında zaten bitmiş ya da hatalı olan yazıcı sessiz kalır; "bitti", yazıcının daha önce basıyor, duraklamış ya da hazırlanıyor olduğu anlamına gelir. Otomatik modda her yazıcı yaklaşık dakikada bir ziyaret edilir, yani ekranda olmayan bir yazıcının uyarısı yaklaşık bir dakikaya kadar geç gelebilir.
-- Sesi kapatmak ya da açmak için düğme butonunu **2,5 saniye** basılı tutun (bir mesaj yeni durumu gösterir; yeniden başlatınca hatırlanmaz).
-- Demo yazılımı (`pio run -e demo -t upload`), sahte yazıcıları bittikçe ve hata verdikçe sesleri çalar; bağlantınızı denemenin kolay yolu budur.
-- `settings.h` ayarları: `PIN_BUZZER` (`-1` = buzzer yok), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
+- Sesi kapatmak ya da açmak için düğme butonunu **2,5 saniye** basılı tutun (ya da web panelini kullanın); sessiz durumu NVS hafızasına kaydedilir ve yeniden başlatınca hatırlanır.
+- Web panelindeki (`http://<cihaz-ip>`) **Ses & Melodi Stüdyosu** sekmesinden sesleri canlı test edebilir, aktif/pasif buzzer modunu ve sinyal yönünü (`Active-LOW`) değiştirebilir, **5 bitiş melodisi** ve **4 hata melodisi** arasından seçim yapabilir ya da kendi özel melodinizi (`frekans:süre, 0:sus, ...`) tasarlayabilirsiniz.
+- Demo yazılımı (`pio run -e demo -t upload`), sahte yazıcıları bittikçe ve hata verdikçe sesleri çalar; bağlantınızı çevrimdışı denemenin kolay yolu budur.
+- `settings.h` derleme varsayılanları: `PIN_BUZZER` (`-1` = buzzer yok), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
 
 ## Kurulum, adım adım
 
@@ -400,7 +406,7 @@ Kullanılan alanlar (hepsi `print` altında): `gcode_state`, `mc_percent`, `mc_r
 - **Yeniden deneme.** Erişilemeyen yazıcı her 60 sn'de (ekrandayken 8 sn'de) denenir. Reddedilen bilgiler en çok dakikada bir denenir; böyle bir yazıcıya bakmak denemeyi öne çekmez.
 - **TLS.** Yazıcılar yerel ağda kendinden imzalı sertifika kullanır, olduğu gibi kabul edilir. Bulut sunucusunun sertifikası, anahtar gönderilmeden önce dahili Mozilla CA paketiyle doğrulanır.
 - **Dosya adları** ekran yazı tipi için ASCII'ye çevrilir: Türkçe harfler sadeleştirilir (ğ → g), desteklenmeyenler `?` olur.
-- **Bellek.** Bağlıyken yaklaşık 100 KB heap boş kalır (görülen en düşük: 84 KB); yazılım 3 MB'lık bölümde yaklaşık 1,2 MB'tır (OTA yok).
+- **Bellek.** Bağlıyken yaklaşık 100 KB heap boş kalır (görülen en düşük: 84 KB); yazılım 3 MB'lık bölümde yaklaşık 1,3 MB'tır (OTA yok).
 - **Ekran uykusu.** 5 dakika boyunca hiçbir yazıcı basmıyor, duraklamış, hazırlanıyor ya da hatalı değilse ekran kapanır; düğmeye dokunmak veya yeni bir etkinlik uyandırır.
 - **Açılış tanılaması.** Günlük, ekranın nerede yanıt verdiğini yazar (`[oled] found at 0x3C ...`); yapılandırılan pinlerde sessizse tüm diğer pin çiftlerini tarayıp nereye bağlı olduğunu söyler.
 
@@ -411,7 +417,8 @@ platformio.ini            derleme ortamları (esp32c3, demo), platform ve flash 
 include/settings.h        pinler, süreler, dil, saat dilimi
 include/secrets.example.h git'e girmeyen secrets.h için şablon
 src/main.cpp              setup + loop, periyodik durum satırı
-src/Config.*              yazıcı listesi ve bilgiler (secrets.h'ı okur)
+src/Config.*              yazıcı listesi ve bilgiler (NVS + secrets.h varsayılanları)
+src/Web.*                 dahili HTTP ayar sayfası ve kurulum erişim noktası (AP)
 src/State.*               paylaşılan durum tablosu (kilitli)
 src/Poller.*              MQTT oturumları, ayrıştırma, yeniden deneme, bulut, demo verisi
 src/Input.*               düğme çözme (kesme) ve buton (tıklama / uzun / çok uzun basış)
@@ -469,9 +476,8 @@ Yedek alır (`secrets.h.bak`), yazıcılarınızı tablo olarak yazdırır ve **
 ## Sınırlar ve fikirler
 
 - Yalnızca birkaç model denendi, bkz. [Durum](#durum).
-- Ayarlar yazılıma gömülür; henüz web kurulum sayfası yok. Wi-Fi ve yazıcıları flash'ta saklayan bir captive-portal kurulumu projeyi paylaşmayı kolaylaştırırdı.
-- Bulut anahtarını cihaz yenileyemez (Bambu'nun yenileme noktası kullanılamaz), bu yüzden ~3 ayda bir yeniden yükleme gerekir. Bir ayar sayfası bunu da ortadan kaldırırdı.
-- Havadan güncelleme yok (büyük bölüm OTA düzeninin yerini alır).
+- Bulut anahtarını cihaz kendi başına yenileyemez (Bambu'nun yenileme noktası kullanılamaz), bu yüzden ~3 ayda bir web ayar sayfasından (`http://<cihaz-ip>`) veya yeniden yükleyerek güncellenmelidir.
+- Havadan yazılım güncellemesi (OTA) yok (büyük bölüm OTA düzeninin yerini alır).
 - HMS uyarıları yalnızca sayılır, çözülmez; geçen süre bir tahmindir.
 - Fikirler: baskı bitince LED, Home Assistant / MQTT çıkışı, liste görünümlü daha büyük ekran, yazıcı başına eşikler.
 
