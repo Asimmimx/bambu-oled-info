@@ -1,27 +1,130 @@
 # Bambu OLED Info
 
-A tiny desk gadget that shows what your Bambu Lab printers are doing: **name, progress bar, time left, time elapsed, finish time, temperatures, layer, file name, speed mode, filament and what the printer is doing right now**. It is an ESP32-C3, a 0.91" OLED and a rotary knob. Printers on your Wi-Fi are read directly over your local network; printers somewhere else (a second house, a workshop) can be read through your Bambu account.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Platform: ESP32-C3](https://img.shields.io/badge/platform-ESP32--C3-red) ![Build: PlatformIO](https://img.shields.io/badge/build-PlatformIO-orange)
 
-*[Türkçe](README.tr.md)*
+A small desk gadget that shows what your **Bambu Lab printers** are doing, at a glance: progress bar, time left, time elapsed, finish time, temperatures, layer, file name, speed mode, filament and what the printer is busy with right now. It is an **ESP32-C3**, a **0.91" OLED** and a **rotary knob**.
+
+- Printers on your Wi-Fi are read **directly over your local network**. No server, no phone app, no cloud account needed.
+- Printers somewhere else (a second house, a workshop) can be read **through your Bambu account**, by the same device.
+- It only **reads** status. It never starts, pauses or stops a print.
+
+*[Türkçe sürüm / Turkish version](README.tr.md)*
 
 ![Wiring diagram](docs/wiring.svg)
+
+---
+
+## Contents
+
+1. [Status](#status)
+2. [Features](#features)
+3. [The screens and the knob](#the-screens-and-the-knob)
+4. [What you need](#what-you-need)
+5. [Wiring](#wiring)
+6. [Setup, step by step](#setup-step-by-step)
+7. [Printers that are not on your Wi-Fi](#printers-that-are-not-on-your-wi-fi)
+8. [Configuration reference](#configuration-reference)
+9. [How it works](#how-it-works)
+10. [Project layout](#project-layout)
+11. [The helper tools](#the-helper-tools)
+12. [Security and privacy](#security-and-privacy)
+13. [Troubleshooting](#troubleshooting)
+14. [Limitations and ideas](#limitations-and-ideas)
+15. [Contributing](#contributing)
+16. [Credits and license](#credits-and-license)
+
+---
 
 ## Status
 
 | | |
 |---|---|
-| Verified on hardware | ESP32-C3 (CH343 USB-UART board), SSD1306 128x32 OLED, KY-040 knob, 3x **A1 mini** (firmware 01.08.01.00) on the LAN in normal cloud mode, no LAN Only Mode needed; 3 more printers in another house (an A1, an X2D and an A2L, by their owner's account) read through Bambu Cloud |
-| Not verified | P1 / X1 / H2 series and everything else |
+| **Verified on hardware** | ESP32-C3 on a CH343 USB-UART board (two boards), SSD1306 128x32 OLED, KY-040 knob. Three **A1 mini** printers (firmware 01.08.01.00) on the LAN, in normal cloud mode, **without** LAN Only Mode. Three further printers in another house (an A1, an X2D and an A2L, according to their owner) read through Bambu Cloud. |
+| **Not verified** | P1 / X1 / H2 series and every other model. Failure states (an actual print error) were only exercised with the built-in demo, not with a real failing printer. |
 
-Other models should work in principle (same MQTT protocol), but I have not been able to test them. Reports are welcome.
+Other models should work in principle, because the status protocol is the same, but I could not test them. Reports are very welcome, see [Contributing](#contributing).
+
+## Features
+
+- **Six printers on one 128x32 screen**, shown one at a time (10 s each) or all together (overview).
+- **Live updates** for the printer on screen; the last known state of the others is remembered.
+- Works with printers that send **partial** status (A1 family) as well as full status.
+- **Finish clock** ("done at 17:42"), from the printer's remaining time and NTP.
+- **Cloud mode** for printers on another network, with a verified TLS connection.
+- Errors **flash** the header; an idle farm **switches the screen off** (OLED burn-in) and wakes up when something happens.
+- English or Turkish labels (`UI_LANG_TR`), configurable pins, timings and time zone.
+- **Demo build** with fake printers to preview every screen without any printer.
+- Two small Python tools to find your printers and read their access codes.
+
+## The screens and the knob
+
+A single **click** steps through four screens: **Progress → Overview → Details → Info → Progress ...**
+
+| Control | What it does |
+|---|---|
+| Nothing | **Auto mode**: each printer is shown for 10 s (`CAROUSEL_MS`), then the next one |
+| Turn the knob | Choose a printer; auto mode pauses and resumes after 45 s without touching (`MANUAL_TIMEOUT_MS`) |
+| Click | Next screen (see above) |
+| Long press (0.8 s) | Auto mode **on / off**; a message stays on screen for 3 s |
+| Any touch while the screen is off | Wakes the screen (the touch is not used for anything else) |
+
+The sketches below are layouts, not photographs. The real display is 128x32 pixels, about 21 characters wide.
+
+**Progress**: the main screen.
+
+```
+Garage A1                RUN
+[=========-----------]   42%
+Left 3h26m Elapsed 2h29m
+```
+
+Name and state tag on top, a progress bar with the percentage, and below it the time left and the time elapsed. While a printer is preparing a print, the last line shows what it is doing instead (*Heating bed*, *Bed leveling*, *Cleaning nozzle*...). A finished print shows how long it took; an idle printer shows its temperatures.
+
+**Overview**: every printer at once (the first six), as a 3x2 grid.
+
+```
+MINI1 42%  MINI2 63%  MINI3 53%
+[====---]  [=====--]  [====---]
+A1    81%  X2D   done A2L   38%
+[======-]  [=======]  [===----]
+```
+
+Each cell shows a short name (`shortName`, max. 5 characters), the percentage or a state word (`idle`, `done`, `ERR`, `off`, `AUTH`) and a small bar. The cell of the selected printer is inverted; an error flashes. In auto mode the highlight follows the printer the device is talking to; turn the knob to pick one, and a click moves on to the next screen for that printer.
+
+**Details**
+
+```
+Garage A1           L118/290
+N220/220 B65/65 C31
+ETA 17:42             -46dBm
+altbaski.stl + altbaski.stl +
+```
+
+Layer, nozzle / bed / chamber temperatures (target after the slash; the chamber only if the printer reports one), the clock time the print will be done (`+1` means tomorrow), Wi-Fi signal, and the file name, which scrolls when it is too long.
+
+**Info**
+
+```
+Garage A1                RUN
+Speed Standard 100%
+Fan 66% 0.4mm PLA
+No errors
+```
+
+Speed mode and percentage, part-cooling fan, nozzle diameter, the filament in use (from the AMS slot or the external spool), and the last line: an error code, the printer's current stage, or the number of active HMS notices.
+
+**State tags**: `RUN` printing, `PAUSE`, `PREP` preparing, `DONE`, `IDLE`, `ERR` failed or error code present, `OFF` not reachable, `AUTH` access code or cloud token rejected, `...` no data yet.
 
 ## What you need
 
-- An **ESP32-C3** dev board
-- A **0.91" 128x32 SSD1306 I2C OLED** (pins GND, VCC, SCK/SCL, SDA)
-- A **KY-040 rotary encoder** (optional but nice: it lets you pick a printer)
-- A few jumper wires and a USB cable
-- [PlatformIO](https://platformio.org/) (CLI or the VS Code extension)
+| Part | Notes |
+|---|---|
+| **ESP32-C3** dev board | Tested on a board with a CH343 USB-UART bridge. Native-USB boards (e.g. SuperMini) work with a small change, see [Configuration reference](#configuration-reference). |
+| **0.91" OLED, 128x32, SSD1306, I2C** | Four pins: GND, VCC, SCK (= SCL), SDA. Address `0x3C` (`0x3D` is detected too). |
+| **KY-040 rotary encoder** | Optional, but it is how you choose a printer. |
+| Jumper wires, USB cable | |
+| [PlatformIO](https://platformio.org/) | CLI or the VS Code extension. |
+| Python 3 | Only for the helper tools; they need nothing but the standard library. |
 
 ## Wiring
 
@@ -30,104 +133,279 @@ Other models should work in principle (same MQTT protocol), but I have not been 
 | GND | GND | | CLK | GPIO6 |
 | VCC | 3V3 | | DT | GPIO7 |
 | SCK (SCL) | GPIO5 | | SW | GPIO10 |
-| SDA | GPIO4 | | + | 3V3 (not 5V) |
+| SDA | GPIO4 | | + | 3V3 (**not** 5V) |
 | | | | GND | GND |
 
-Go by the pin *labels* on your modules, not their order. The pins can be changed in [`include/settings.h`](include/settings.h); avoid GPIO 2, 8, 9 (boot), 11-17 (flash), 18-21 (USB / UART).
+- Go by the **pin labels** on your modules, not their order; the order differs between manufacturers.
+- Power the KY-040 `+` from 3V3: the module has pull-up resistors to that pin, so its signals stay at 3.3 V.
+- The pins can be changed in [`include/settings.h`](include/settings.h). Avoid GPIO 2, 8, 9 (boot straps), 11-17 (flash), 18-19 (USB) and 20-21 (UART).
+- No extra parts are needed: the KY-040 and most OLED modules already carry their own pull-up resistors, and the firmware also enables the internal pull-ups on the knob pins.
 
-## Quick start
+## Setup, step by step
+
+### 1. Get the code
 
 ```bash
 git clone https://github.com/Asimmimx/bambu-oled-info
 cd bambu-oled-info
-cp include/secrets.example.h include/secrets.h      # Windows: copy ... ...
+cp include/secrets.example.h include/secrets.h        # Windows: copy include\secrets.example.h include\secrets.h
 ```
 
-1. **Find your printers** (name, serial number, IP) with the helper, run from a computer on the same network:
+`include/secrets.h` is git-ignored: it will hold your Wi-Fi password and the printers' access codes. **Never commit it.**
 
-   ```bash
-   python tools/find_printers.py
-   ```
-
-2. **Edit `include/secrets.h`**: your Wi-Fi and one line per printer. This file is git-ignored.
-
-3. **Get the printers' access codes.** Two ways:
-   - On the printer: turn on *LAN Only Mode*; the code appears under the switch. Note that LAN Only Mode disconnects the printer from Bambu Cloud.
-   - Or read them once from your Bambu account, without touching the printers (the script uses Bambu's unofficial cloud API):
-
-     ```bash
-     python tools/fetch_access_codes.py            # e-mail + password (+ e-mail code)
-     python tools/fetch_access_codes.py --token    # or paste the "token" cookie of makerworld.com
-     ```
-
-     It writes the codes into `secrets.h` and keeps nothing else.
-
-4. **Build and flash:**
-
-   ```bash
-   pio run -e esp32c3 -t upload
-   ```
-
-   On Windows use PowerShell or cmd, not Git Bash (the platform's tool installer refuses MSys).
-
-No printers yet, or want to see the screens first? `pio run -e demo -t upload` shows fake printers cycling through every state.
-
-### Printers that are not on your Wi-Fi
-
-A printer whose `ip` is `""` in `secrets.h` is read through Bambu Cloud instead. One command sets this up: it stores your cloud login in `secrets.h` and adds every printer of your account that is not in the file yet:
+### 2. Look at the screens first (optional)
 
 ```bash
-python tools/fetch_access_codes.py --token --cloud
+pio run -e demo -t upload
 ```
 
-- The device keeps **one** cloud connection for all of them, so switching between cloud printers is instant. The server certificate is verified against the built-in CA bundle before the token is sent; the clock is set over NTP first.
-- The token is a password to your Bambu account and is compiled into the firmware. It is valid for about 3 months; run the command again and re-flash then. A cloud printer showing `AUTH` usually means the token expired.
-- Global (non-China) accounts only; the cloud host is `BAMBU_CLOUD_HOST` (default `us.mqtt.bambulab.com`).
+The demo build needs no Wi-Fi and no printers; it shows fake printers cycling through running, idle, finished, failed and offline.
 
-The alternative is a second unit next to those printers with its own `secrets.h`, which never needs the cloud.
+### 3. Find your printers
 
-## Using it
+Run this on a computer that is on the same network as the printers:
 
-| Action | Result |
+```bash
+python tools/find_printers.py
+```
+
+```
+Name               Model      Serial            IP              Mode     Firmware
+Garage A1          A1 mini    0300DA000000000   192.168.1.148   cloud    01.08.01.00
+```
+
+It listens for the SSDP announcements that Bambu printers broadcast, so it needs no account and no password. Note the name, **serial number** and **IP** of each one. Give the printers a fixed address (a DHCP reservation in your router) so the IP never changes.
+
+### 4. Edit `include/secrets.h`
+
+```cpp
+#define WIFI_SSID     "your-wifi"
+#define WIFI_PASSWORD "your-password"
+
+static const PrinterConfig PRINTERS[] = {
+    {"Garage A1",  "GARA",  "192.168.1.148", "0300DA000000000", "12345678"},
+    //  name       short    LAN address      serial             access code
+};
+```
+
+The name is shown on the top line (about 14 characters fit); `shortName` (max. 5) is used in the overview. Use plain letters: the display font has no `ş ı ğ İ`.
+
+### 5. Get the access codes
+
+Each printer has an 8-character LAN access code that is the password for its local MQTT service. There are three ways to get it:
+
+**a) From the printer** (official). Turn on **LAN Only Mode** in the printer's settings (on the A1 family it is on the last page of the settings menu); the code is shown right below the switch. The catch: LAN Only Mode disconnects the printer from Bambu Cloud, so remote monitoring and cloud printing stop working for it.
+
+**b) From your Bambu account, with e-mail and password.** This keeps the printers in normal cloud mode:
+
+```bash
+python tools/fetch_access_codes.py
+```
+
+It asks for your e-mail and password (typed at the prompt, not shown) and, if Bambu asks, the verification code from your e-mail. It lists the printers on your account and writes each access code into `secrets.h`, matching by serial number.
+
+**c) From your Bambu account, with your MakerWorld session.** If you are already signed in to [makerworld.com](https://makerworld.com) (same account) and do not want to deal with the e-mail code:
+
+1. Open makerworld.com in your browser while signed in.
+2. Open the developer tools (`F12`) → **Application** (Chrome / Edge) or **Storage** (Firefox) → **Cookies** → `https://makerworld.com`.
+3. Copy the **value** of the cookie named `token`.
+4. Run `python tools/fetch_access_codes.py --token` and paste it at the prompt (it is not shown).
+
+The token is as powerful as your password for about three months. Do not share it or paste it anywhere else. The script uses it once and does not store it. Both (b) and (c) use Bambu's **unofficial** cloud API, see [Security and privacy](#security-and-privacy).
+
+### 6. Build and flash
+
+```bash
+pio run -e esp32c3 -t upload
+pio device monitor            # optional: follow the log
+```
+
+On Windows run this from **PowerShell or cmd, not Git Bash**; the platform's tool installer refuses MSys. The first build downloads a few hundred MB of toolchain.
+
+### 7. What you should see
+
+At power-up the screen shows *Connecting WiFi*, then the first printer. The serial log (115200 baud) looks like this:
+
+```
+[oled] found at 0x3C (SDA=GPIO4 SCL=GPIO5)
+[wifi] up, ip 192.168.1.167, rssi -47
+[Garage A1] connected in 1287 ms, free heap 105424 (largest block 77812)
+[Garage A1] pushall sent
+[Garage A1] phase=3 42% left=206min elapsed=149min layer=118/290 nozzle=220/220 ...
+```
+
+## Printers that are not on your Wi-Fi
+
+The device only sees the Wi-Fi it is connected to. There are two ways to include printers elsewhere:
+
+**Through Bambu Cloud (one device for everything).** A printer whose `ip` is `""` in `secrets.h` is read through your Bambu account. One command prepares this: it stores your cloud login and adds every printer of your account that is not in `secrets.h` yet:
+
+```bash
+python tools/fetch_access_codes.py --token --cloud       # or without --token to log in with e-mail and password
+```
+
+- All cloud printers share **one** connection, so switching between them on screen is instant.
+- The server certificate is **verified** against the built-in CA bundle before your token is sent, after the clock has been set over NTP.
+- The token is compiled into the firmware and is valid for about **three months**. Run the command again and re-flash when a cloud printer shows `AUTH`.
+- Global (non-China) accounts only. The broker is `BAMBU_CLOUD_HOST`, default `us.mqtt.bambulab.com`.
+- Long names (more than about 14 characters) are cut on screen; rename them in `secrets.h`.
+
+**A second unit.** Build another device with its own `secrets.h` and put it next to those printers. It talks to them locally and never needs the cloud.
+
+## Configuration reference
+
+### `include/settings.h`
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `PIN_OLED_SDA`, `PIN_OLED_SCL` | 4, 5 | I2C pins of the display |
+| `PIN_ENC_CLK`, `PIN_ENC_DT`, `PIN_ENC_SW` | 6, 7, 10 | Knob pins |
+| `ENC_REVERSE` | 0 | Set to 1 if turning clockwise moves backwards |
+| `ENC_EDGES_PER_DETENT` | 4 | Try 2 if one click of the knob skips a printer |
+| `UI_LANG_TR` | 1 | 1 = Turkish labels, 0 = English |
+| `TIMEZONE` | `<+03>-3` | POSIX time zone for the finish clock, e.g. `CET-1CEST,M3.5.0,M10.5.0/3` |
+| `CAROUSEL_MS` | 10000 | Time each printer stays on screen in auto mode |
+| `MANUAL_TIMEOUT_MS` | 45000 | Auto mode resumes after this long without touching the knob |
+| `SCREEN_SLEEP_MS` | 300000 | Screen off after this long with nothing printing; 0 = never |
+| `AUTO_LISTEN_MS` | 3500 | Overview mode: how long to listen to each printer |
+| `FIRST_REPORT_WAIT_MS` | 7000 | Give up on a printer that connects but stays silent |
+| `CONNECT_TIMEOUT_S`, `HANDSHAKE_TIMEOUT_S` | 3, 8 | TCP and TLS timeouts |
+| `OFFLINE_RETRY_MS` | 60000 | Retry interval for an unreachable printer or rejected credentials |
+| `FOCUS_RETRY_MS` | 8000 | Retry interval while that printer is on screen |
+| `FOCUS_SETTLE_MS` | 450 | Wait for the knob to stop before connecting |
+| `PUSHALL_MIN_INTERVAL_MS` | 330000 | Minimum time between full-status requests per printer (5.5 min) |
+| `HEARTBEAT_MS` | 10000 | Interval of the status line in the serial log |
+| `MQTT_BUFFER_BYTES` | 24576 | Largest accepted MQTT message; bigger ones are silently dropped |
+
+### `include/secrets.h`
+
+| Entry | Meaning |
 |---|---|
-| Nothing | Each printer is shown for 10 s, then the next one |
-| Turn the knob | Pick a printer; auto-cycling pauses for 45 s |
-| Click | Next screen: **Progress** → **Details** → **Info** → **Overview** |
-| Long press | Auto-cycling on / off (a message stays on screen for 3 s) |
+| `WIFI_SSID`, `WIFI_PASSWORD` | Your Wi-Fi (2.4 GHz) |
+| `PRINTERS[]` | One entry per printer: `{name, shortName, ip, serial, accessCode}`. `ip` = `""` means "through Bambu Cloud". At most 8 (`MAX_PRINTERS` in `src/Config.h`); the overview shows the first 6. |
+| `BAMBU_CLOUD_USER`, `BAMBU_CLOUD_TOKEN`, `BAMBU_CLOUD_HOST` | Only for cloud printers; written by `fetch_access_codes.py --cloud` |
 
-- **Progress**: name, state, bar with percentage, time left and elapsed. While a printer is preparing it shows what it is doing instead (heating bed, leveling...).
-- **Details**: layer, nozzle / bed / chamber temperatures, finish time, Wi-Fi signal and the (scrolling) file name.
-- **Info**: speed mode and percentage, part-cooling fan, nozzle size, filament in use, current stage and HMS notices.
-- **Overview**: every printer at once as a small grid.
-- A printer with an error flashes its header. If nothing is printing for 5 minutes the screen switches off (OLED burn-in); touching the knob or a new print wakes it.
-- State tags: `RUN` `PAUSE` `PREP` `DONE` `IDLE` `ERR`, `OFF` (not reachable), `AUTH` (wrong access code or expired token).
+### `platformio.ini`
+
+| Environment | Use |
+|---|---|
+| `esp32c3` | The real firmware |
+| `demo` | Same UI with fake printers and no Wi-Fi |
+
+For a board with **native USB** (no separate USB-UART chip), delete the two `-DARDUINO_USB_...` lines from `build_flags`. Other boards: change `board`. The platform is [pioarduino](https://github.com/pioarduino/platform-espressif32) (Arduino core 3), and the flash is forced to 40 MHz DIO (see [Troubleshooting](#troubleshooting)).
 
 ## How it works
 
-An ESP32-C3 cannot hold six TLS sessions at once. The firmware keeps **one** MQTT-over-TLS session (port 8883) and stays connected to the printer on screen, so it updates live: user `bblp` with the access code for a printer on the LAN, your account for Bambu Cloud. It remembers the last state of every printer, which is what the overview shows.
+### The big picture
 
-- Printers like the A1 only send *changes*, so the firmware merges them into the remembered state. It asks for a full status (`pushall`) on the first visit and then at most every 5.5 minutes, since Bambu advises against asking more often.
-- The printers report time *left* but not time *elapsed*; elapsed is estimated from the progress, so it is approximate (and unknown for a print that finished before the device started).
-- The finish time needs NTP; set `TIMEZONE` in `settings.h`.
-- Wrong access codes are retried at most once a minute.
-- File names are shown in ASCII: Turkish letters are folded (ğ → g) and unsupported characters become `?`.
-- Memory stays flat: about 100 KB heap free while connected.
+```
+ Printers on the LAN ──┐                      ┌── Knob ─────► input ─┐
+   (MQTT/TLS :8883)    ├─► poller task ─► state ◄── ui (loop) ◄─────┘
+ Bambu Cloud ──────────┘   (one session)   (shared, locked)   │
+   (MQTT/TLS :8883)                                           └──► OLED
+```
 
-All tunables (carousel time, language `UI_LANG_TR`, timeouts, pins) are in [`include/settings.h`](include/settings.h). Up to 8 printers are supported (`MAX_PRINTERS`).
+Two tasks share a small, mutex-protected table with the last known status of every printer:
+
+- The **poller** (`src/Poller.cpp`) owns the network. It talks to one MQTT broker at a time and writes what it learns into the table.
+- The **UI** (`src/Ui.cpp`, in the Arduino `loop`) reads the table, draws the screens and handles the knob. The knob itself is decoded in an interrupt (`src/Input.cpp`).
+
+### Why one connection at a time
+
+An ESP32-C3 has about 300 KB of RAM. A TLS session costs tens of KB, so six sessions do not fit. Instead the poller keeps **one** session and moves it where you are looking: in auto mode and while you browse it stays connected to the printer on screen (live updates); switching costs about 1.3 s, during which the last known values are shown. The overview has no single printer, so there the poller visits them in turn. All cloud printers are served by one cloud session.
+
+### The status protocol
+
+A printer runs an MQTT broker on port 8883 (TLS). The device logs in with user `bblp` and the printer's **access code**, subscribes to `device/<serial>/report` and asks for a full status once by publishing `{"pushing":{"command":"pushall"}}` to `device/<serial>/request`. For cloud printers the broker is Bambu's, the user is `u_<your account id>` and the password is your token; the topics are the same. The protocol is documented by the community in [OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI).
+
+The fields used (all under `print`): `gcode_state`, `mc_percent`, `mc_remaining_time`, `layer_num`, `total_layer_num`, `nozzle_temper`, `nozzle_target_temper`, `bed_temper`, `bed_target_temper`, `chamber_temper`, `print_error`, `hms`, `wifi_signal`, `subtask_name` / `gcode_file`, `spd_lvl`, `spd_mag`, `stg_cur`, `cooling_fan_speed`, `nozzle_diameter`, `ams.tray_now`, `ams.ams[].tray[].tray_type` and `vt_tray.tray_type`. Each message is filtered while it is parsed, so a 9 KB report costs only a few hundred bytes of RAM.
+
+### Details worth knowing
+
+- **Partial reports.** Printers like the A1 only send fields that *changed*. The firmware merges them into the remembered state, and asks for a full picture (`pushall`) on the first visit and then at most every **5.5 minutes**: Bambu advises against asking more often because the printer's CPU can lag.
+- **Time elapsed is an estimate.** Printers report the time *left* and the percentage, not the time already spent. Elapsed time is `left × percent / (100 − percent)` for 1-99 %, so it is approximate, and unknown for a print that finished before the device started.
+- **Finish clock.** `now + time left`, using NTP and your `TIMEZONE`.
+- **Back-off.** An unreachable printer is retried every 60 s (8 s while it is on screen). Rejected credentials are retried at most once a minute, and looking at such a printer does not bring the retry forward.
+- **TLS.** Printers use self-signed certificates on your LAN, which are accepted as they are. The cloud server's certificate is checked against the built-in Mozilla CA bundle before the token is sent.
+- **File names** are converted to ASCII for the display font: Turkish letters are folded (ğ → g) and anything unsupported becomes `?`.
+- **Memory.** About 100 KB of heap stays free while connected (minimum seen: 93 KB); the firmware is about 1.2 MB in a 3 MB partition (no OTA).
+- **Screen sleep.** If no printer is printing, paused, preparing or in error for 5 minutes, the screen turns off; a knob touch or new activity wakes it.
+- **Boot diagnostics.** The log says where the display answered (`[oled] found at 0x3C ...`) and, if it is silent on the configured pins, scans all other pin pairs to tell you where it is wired.
+
+## Project layout
+
+```
+platformio.ini            build environments (esp32c3, demo), platform and flash settings
+include/settings.h        pins, timings, language, time zone
+include/secrets.example.h template for your git-ignored secrets.h
+src/main.cpp              setup + loop, periodic status line
+src/Config.*              printer list and credentials (reads secrets.h)
+src/State.*               shared status table (mutex-protected)
+src/Poller.*              MQTT sessions, parsing, back-off, cloud, demo data
+src/Input.*               knob decoding (interrupts) and button (click / long press)
+src/Ui.*                  display, screens, carousel, toast, screen sleep
+tools/find_printers.py    list printers on the LAN (SSDP)
+tools/fetch_access_codes.py  read access codes / cloud login from your Bambu account
+docs/wiring.svg           wiring diagram
+```
+
+## The helper tools
+
+Both are plain Python 3 scripts with no dependencies.
+
+**`tools/find_printers.py [--seconds 40]`** listens for the SSDP announcements of Bambu printers and prints name, model, serial number, IP, connection mode (e.g. `cloud`) and firmware. It sends nothing.
+
+**`tools/fetch_access_codes.py`**
+
+| Option | Effect |
+|---|---|
+| *(none)* | Log in with e-mail and password (asks for the e-mail code if needed) |
+| `--token` | Paste the `token` cookie of makerworld.com instead of logging in |
+| `--cloud` | Also store the cloud login in `secrets.h` and add the account's other printers as cloud printers |
+| `--export-others` | Save printers that are not in `secrets.h` to `include/secrets.others.h` (git-ignored) |
+| `--cn` | China-region account (the firmware's cloud mode is not tested for it) |
+| `--secrets PATH` | Another `secrets.h` |
+
+It makes a backup (`secrets.h.bak`), prints a table of your printers, and **never prints or stores your password or token** (with `--cloud` the token is written to `secrets.h` on purpose). It identifies itself honestly as `bambu-oled-info`; it does not pretend to be a Bambu app.
+
+## Security and privacy
+
+- **What lives where.** Wi-Fi password, access codes, serial numbers and the cloud token are only in `include/secrets.h` (git-ignored, with `.bak` copies and `secrets.*.h` also ignored) and, compiled in, in the device's flash. Check `git status` before you push.
+- **The cloud token is a password** to your Bambu account for about three months. With `--cloud` it sits in the flash of the device, so treat the device like a key: if you lose it or hand it on, change your Bambu password. LAN-only use does not need a token at all.
+- **Read-only.** The only message the firmware publishes is the status request (`pushall`). It cannot control your printers.
+- **LAN TLS is not verified.** Printers use self-signed certificates, so on your network a person with access to it could impersonate a printer. The device only sends the access code to the address in `secrets.h`.
+- **Unofficial API.** The account tools and cloud mode use Bambu's undocumented cloud API. Bambu can change or restrict it at any time, and automated use of an account is something they may not appreciate. Use it for your own printers, at your own risk.
 
 ## Troubleshooting
 
-- **Board is completely silent / no serial output, even after flashing.** Many ESP32-C3 boards cannot read their flash at 80 MHz; the bootloader then loops on `partition 0 invalid magic number`. This repo already forces 40 MHz DIO and the current Arduino core in `platformio.ini`. If you change the platform, keep those settings.
-- **Blank OLED.** Open the serial monitor (`pio device monitor`). The firmware prints `[oled] found at 0x3C ...`, or scans every other pin pair and tells you where the display answers.
-- **`AUTH`** on a printer: wrong access code (or the printer does not accept local connections; try LAN Only Mode). On cloud printers: the token expired.
-- **`OFF`**: the printer is off or not reachable from this network.
-- **Knob or button does nothing.** The serial log prints `[input] left / right / click / long press` for every event, and the 10-second status line shows the pin levels (`clk= dt= sw=`; `sw` drops to 0 while the knob is pressed). A level that never changes means a wiring problem.
-- Names you type in `secrets.h` are shown in a font without ş ı ğ İ; use plain letters.
+| Symptom | Likely cause and fix |
+|---|---|
+| Board completely silent, no serial output, even after flashing | Many ESP32-C3 boards cannot read their flash at 80 MHz: the bootloader loops on `partition 0 invalid magic number` (visible only with the modern bootloader). This repo forces 40 MHz DIO and the pioarduino platform. If you change the platform, keep those settings. |
+| Build fails with `MSys/Mingw is not supported` | Run `pio` from PowerShell or cmd, not Git Bash. |
+| OLED stays blank | Open `pio device monitor`. The log says `[oled] found at 0x3C` or scans every pin pair and reports where the display answers. No answer anywhere: check VCC (3V3), GND and solder joints. |
+| Knob or button does nothing | The log prints `[input] left / right / click / long press` for every event, and the 10 s status line shows `clk= dt= sw=` (all 1 at rest; `sw` is 0 while pressed). A level that never changes means wiring. Rotation reversed: `ENC_REVERSE`. One click skips: `ENC_EDGES_PER_DETENT`. |
+| Printer shows `AUTH` | Wrong access code. For a cloud printer: the token expired, run `fetch_access_codes.py --token --cloud` again and re-flash. |
+| Printer shows `OFF` | Printer is off, or not reachable from this network (other subnet, guest Wi-Fi, client isolation). |
+| `...` stays on screen | Connected but no full report yet. The first status request can take a few seconds; the log shows `connected but no full report received` if it never comes. |
+| A large printer never updates | Its messages may exceed `MQTT_BUFFER_BYTES`; the log prints the largest message seen. Raise the value. |
+| Finish time is missing | NTP has not synced (needs internet), or the printer is not printing. |
+| Letters missing in names | The font has no `ş ı ğ İ`; use plain letters in `secrets.h`. |
 
-## Disclaimer
+## Limitations and ideas
 
-Unofficial and not affiliated with Bambu Lab. The protocol is documented by the community ([OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI)) and can change with any firmware update. The cloud script and cloud mode use an undocumented API and may stop working. The firmware only *reads* printer status; it never sends commands other than the status request. TLS certificates of printers on the LAN are not verified (they are self-signed devices on your network); the cloud server's certificate is.
+- Only a few models were tested, see [Status](#status).
+- Settings are compiled in; there is no web setup page yet. A captive-portal setup that stores Wi-Fi and printers in flash would make the project easier to share.
+- The cloud token cannot be refreshed by the device (Bambu's refresh endpoint is unusable), so it needs a re-flash every ~3 months. A configuration page would remove that too.
+- No over-the-air updates (the large partition replaces the OTA layout).
+- HMS notices are only counted, not decoded; the elapsed time is an estimate.
+- Ideas: a buzzer or LED when a print finishes, Home Assistant / MQTT output, a bigger display with a list view, per-printer thresholds.
 
-## License
+## Contributing
 
-[MIT](LICENSE)
+Issues and pull requests are welcome. The most useful report is a **model that works or does not**: please include the printer model, firmware version, whether it was a LAN or cloud printer, and the serial log of one carousel cycle (remove your serial number and codes first). Test a change with `pio run -e esp32c3` and `pio run -e demo`; both must build without warnings.
+
+## Credits and license
+
+Unofficial and not affiliated with Bambu Lab. The protocol knowledge comes from the community project [OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI). Libraries: [U8g2](https://github.com/olikraus/u8g2), [PubSubClient](https://github.com/knolleary/pubsubclient) and [ArduinoJson](https://arduinojson.org/); platform: [pioarduino](https://github.com/pioarduino/platform-espressif32).
+
+Released under the [MIT License](LICENSE).

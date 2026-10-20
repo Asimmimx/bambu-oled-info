@@ -48,7 +48,8 @@
 
 namespace {
 
-enum class View : uint8_t { Progress, Details, Info, Overview };
+// Order of the screens a click steps through
+enum class View : uint8_t { Progress, Overview, Details, Info };
 constexpr int kViewCount = 4;
 
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, PIN_OLED_SCL, PIN_OLED_SDA);
