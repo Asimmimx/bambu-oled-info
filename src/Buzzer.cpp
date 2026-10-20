@@ -18,42 +18,42 @@ struct Pattern {
   uint8_t count;
 };
 
-const Step kChirp[] = {{1400, 55, 55}, {0, 25, 0}, {1900, 75, 100}};
+const Step kChirp[] = {{1047, 55, 65}, {0, 25, 0}, {1568, 80, 100}};
 
 // ---- Finish Melodies (0..6, 7 = Custom) ----
-// 0: Classic Rising (C6-E6-G6 with rising volume 40% -> 70% -> 100%)
+// 0: Classic Rising (C6-E6-G6 with rising volume & tone 60% -> 80% -> 100%)
 const Step kFinClassic[] = {
-    {1047, 140, 40}, {0, 65, 0}, {1319, 140, 70}, {0, 65, 0}, {1568, 280, 100}};
+    {1047, 140, 60}, {0, 65, 0}, {1319, 140, 80}, {0, 65, 0}, {1568, 280, 100}};
 
 // 1: Victory Fanfare (C6-E6-G6-C7 with dynamic accents)
 const Step kFinFanfare[] = {
-    {1047, 105, 45}, {0, 35, 0}, {1319, 105, 65}, {0, 35, 0},
-    {1568, 105, 85}, {0, 45, 0}, {2093, 300, 100}, {0, 50, 0}, {1568, 160, 40}};
+    {1047, 110, 58}, {0, 35, 0}, {1319, 110, 72}, {0, 35, 0},
+    {1568, 110, 86}, {0, 45, 0}, {2093, 300, 100}, {0, 50, 0}, {1319, 150, 62}};
 
-// 2: Soft-Loud Double Bell (gentle first chime, bright second chime + soft echo)
+// 2: Soft-Loud Double Bell (gentle first chime, full-power second chime + echo)
 const Step kFinDouble[] = {
-    {1319, 110, 38}, {0, 70, 0}, {1976, 180, 100}, {0, 55, 0}, {1976, 140, 28}};
+    {1047, 115, 60}, {0, 70, 0}, {1760, 190, 100}, {0, 55, 0}, {1319, 140, 55}};
 
-// 3: Crescendo Arpeggio (5-step volume wave 22% -> 40% -> 60% -> 82% -> 100%)
+// 3: Crescendo Arpeggio (5-step rising staircase 55% -> 66% -> 78% -> 90% -> 100%)
 const Step kFinArpeggio[] = {
-    {784, 80, 22},  {0, 25, 0}, {1047, 80, 40}, {0, 25, 0}, {1319, 80, 60},
-    {0, 25, 0},     {1568, 85, 82}, {0, 25, 0}, {2093, 240, 100}};
+    {784, 85, 55},  {0, 25, 0}, {1047, 85, 66}, {0, 25, 0}, {1319, 85, 78},
+    {0, 25, 0},     {1568, 90, 90}, {0, 25, 0}, {2093, 250, 100}};
 
-// 4: Wave Echo (smooth swell up and fade-out tail — crafted for active buzzers)
+// 4: Wave Echo (swell up to full power and echo tail)
 const Step kFinWave[] = {
-    {659, 90, 18},  {0, 20, 0}, {880, 95, 38},  {0, 20, 0}, {1175, 105, 65},
-    {0, 20, 0},     {1568, 140, 92}, {0, 25, 0}, {1976, 200, 100}, {0, 45, 0},
-    {1568, 110, 55}, {0, 35, 0}, {1175, 110, 30}, {0, 35, 0}, {880, 130, 15}};
+    {784, 95, 55},   {0, 25, 0}, {1047, 100, 72}, {0, 25, 0}, {1319, 110, 86},
+    {0, 25, 0},      {1760, 220, 100}, {0, 45, 0}, {1319, 115, 75}, {0, 35, 0},
+    {988, 130, 55}};
 
 // 5: Retro Game Stage Clear (rhythmic volume + pitch groove)
 const Step kFinRetro[] = {
-    {784, 90, 50},  {0, 30, 0}, {1047, 90, 70}, {0, 30, 0}, {1319, 90, 85},
-    {0, 30, 0},     {1568, 150, 100}, {0, 60, 0}, {1319, 120, 55}, {0, 35, 0},
+    {784, 90, 62},  {0, 30, 0}, {1047, 90, 76}, {0, 30, 0}, {1319, 90, 88},
+    {0, 30, 0},     {1568, 160, 100}, {0, 60, 0}, {1175, 120, 68}, {0, 35, 0},
     {1568, 300, 100}};
 
-// 6: Workshop Long Alert (3 strong pulses with echo)
+// 6: Workshop Long Alert (3 strong 100% pulses)
 const Step kFinWorkshop[] = {
-    {1760, 280, 100}, {0, 90, 0}, {1760, 280, 100}, {0, 90, 0}, {1760, 420, 100}};
+    {1760, 300, 100}, {0, 100, 0}, {1760, 300, 100}, {0, 100, 0}, {1760, 460, 100}};
 
 const Pattern kFinishPresets[] = {
     {kFinClassic, sizeof kFinClassic / sizeof kFinClassic[0]},
@@ -66,32 +66,32 @@ const Pattern kFinishPresets[] = {
 };
 
 // ---- Failed / Error Melodies (0..4, 5 = Custom) ----
-// 0: Classic Alternating Siren (Loud-Soft-Loud-Soft)
+// 0: Classic Alternating Siren (Loud High / Medium Low)
 const Step kErrSiren[] = {
-    {980, 200, 100}, {0, 75, 0}, {660, 200, 42}, {0, 75, 0},
-    {980, 200, 100}, {0, 75, 0}, {660, 220, 42}};
+    {1400, 210, 100}, {0, 75, 0}, {700, 210, 62}, {0, 75, 0},
+    {1400, 210, 100}, {0, 75, 0}, {700, 230, 62}};
 
 // 1: Urgent SOS (... --- ...)
 const Step kErrSos[] = {
-    {1200, 85, 65},  {0, 55, 0},  {1200, 85, 65},  {0, 55, 0},  {1200, 85, 65},  {0, 140, 0},
-    {1500, 230, 100}, {0, 75, 0}, {1500, 230, 100}, {0, 75, 0}, {1500, 230, 100}, {0, 140, 0},
-    {1200, 85, 65},  {0, 55, 0},  {1200, 85, 65},  {0, 55, 0},  {1200, 85, 65}};
+    {1047, 90, 75},  {0, 55, 0},  {1047, 90, 75},  {0, 55, 0},  {1047, 90, 75},  {0, 140, 0},
+    {1568, 240, 100}, {0, 75, 0}, {1568, 240, 100}, {0, 75, 0}, {1568, 240, 100}, {0, 140, 0},
+    {1047, 90, 75},  {0, 55, 0},  {1047, 90, 75},  {0, 55, 0},  {1047, 90, 75}};
 
-// 2: Descending Fade-Out (100% -> 75% -> 50% -> 25%)
+// 2: Descending Sad Trombone (100% -> 84% -> 68% -> 55%)
 const Step kErrSad[] = {
-    {880, 170, 100}, {0, 45, 0}, {740, 170, 72}, {0, 45, 0},
-    {622, 180, 48},  {0, 45, 0}, {523, 380, 24}};
+    {1175, 180, 100}, {0, 45, 0}, {988, 180, 82}, {0, 45, 0},
+    {831, 180, 68},   {0, 45, 0}, {659, 380, 55}};
 
 // 3: Heartbeat Warning (thump-THUMP ... thump-THUMP)
 const Step kErrPulse[] = {
-    {600, 90, 38},  {0, 45, 0},  {1100, 160, 100}, {0, 220, 0},
-    {600, 90, 38},  {0, 45, 0},  {1100, 160, 100}, {0, 220, 0},
-    {600, 90, 38},  {0, 45, 0},  {1100, 220, 100}};
+    {700, 95, 60},  {0, 45, 0},  {1500, 170, 100}, {0, 210, 0},
+    {700, 95, 60},  {0, 45, 0},  {1500, 170, 100}, {0, 210, 0},
+    {700, 95, 60},  {0, 45, 0},  {1500, 230, 100}};
 
 // 4: Rapid Alarm (6 fast escalating beeps)
 const Step kErrRapid[] = {
-    {1500, 80, 50}, {0, 45, 0}, {1500, 80, 65}, {0, 45, 0}, {1500, 80, 80},  {0, 45, 0},
-    {1500, 80, 90}, {0, 45, 0}, {1500, 80, 100}, {0, 45, 0}, {1500, 160, 100}};
+    {1000, 85, 65}, {0, 45, 0}, {1150, 85, 74}, {0, 45, 0}, {1300, 85, 82},  {0, 45, 0},
+    {1450, 85, 90}, {0, 45, 0}, {1600, 85, 100}, {0, 45, 0}, {1760, 170, 100}};
 
 const Pattern kFailedPresets[] = {
     {kErrSiren, sizeof kErrSiren / sizeof kErrSiren[0]},
@@ -122,38 +122,53 @@ void outputStep(const Step& st) {
   }
 
   const uint32_t masterVol = (uint32_t)constrain((int)ds.buzzerVolume, 1, 100);
-  // If st.vol is 0 (not explicitly set in a custom pattern), derive a 28..100% contour from freq (400..2000 Hz)
-  const uint32_t stepVol = st.vol > 0 ? constrain((int)st.vol, 1, 100)
-                                      : (uint32_t)constrain(28 + ((int)st.freq - 400) * 72 / 1600, 25, 100);
+  // If st.vol is 0 (not explicitly set in a custom pattern), derive a 55..100% contour from freq (400..2000 Hz)
+  const uint32_t stepVol = st.vol > 0 ? constrain((int)st.vol, 25, 100)
+                                      : (uint32_t)constrain(55 + ((int)st.freq - 500) * 45 / 1500, 50, 100);
   const uint32_t mode = ds.buzzerMode;
 
   if (mode == 1) {
-    // 1 = Passive buzzer: real note frequency, quadratic PWM duty cycle (1..128)
+    // 1 = Passive buzzer: real note frequency, PWM duty cycle (8..128)
     const uint32_t effVol = (masterVol * stepVol + 50) / 100;
     ledcChangeFrequency(PIN_BUZZER, st.freq, 8);
-    const uint32_t duty = 1 + (127 * effVol * effVol) / 10000;
+    const uint32_t duty = 8 + (120 * effVol * effVol) / 10000;
     ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
   } else if (mode == 2) {
-    // 2 = Active buzzer (Volume Melody - Smooth): high 12 kHz PWM carrier so tone is pure,
-    // while step volume creates clear musical dynamics (soft/medium/loud notes & echoes).
-    // Map stepVol (15..100) strongly across the active buzzer's audible range (6..256).
+    // 2 = Active buzzer (Volume + Pitch Melody):
+    // An active buzzer's internal ~2.5 kHz oscillator needs >= 1.2 ms of ON time per pulse to ring loudly.
+    // By modulating at a sub-harmonic (160..580 Hz, period 1.7..6.2 ms) with a high duty cycle (120..256),
+    // every ON pulse is 1.4..3.5 ms of solid 3.3V power (so it is always loud!), while varying both
+    // perceived volume and musical pitch across notes, and hitting 100% pure DC (256) on peak notes.
     const uint32_t effVol = (masterVol * stepVol + 50) / 100;
-    ledcChangeFrequency(PIN_BUZZER, 12000, 8);
-    const uint32_t duty = (effVol >= 99) ? 256 : (4 + (252 * effVol * effVol * effVol) / 1000000);
-    ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
+    if (effVol >= 97) {
+      ledcChangeFrequency(PIN_BUZZER, 500, 8);
+      ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? 0 : 256);
+    } else {
+      const uint32_t modFreq = (uint32_t)constrain((int)st.freq / 3, 160, 580);
+      ledcChangeFrequency(PIN_BUZZER, modFreq, 8);
+      // Map effVol (15..96) -> duty (90..238) so t_ON is always >= 1.3 ms
+      const uint32_t duty = 80 + (162 * effVol) / 100;
+      ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
+    }
   } else if (mode == 3) {
-    // 3 = Active buzzer (Chiptune Pitch + Volume Modulation): chops the active buzzer at a sub-harmonic
-    // of the note frequency while varying duty cycle, producing distinct multi-tone chiptune notes!
+    // 3 = Active buzzer (Chiptune Multi-Tone):
+    // Modulates every note (including 100% peak notes) at st.freq / 3 (150..650 Hz) with strong 115..232 duty
+    // so every single note has a distinct 8-bit chiptune musical pitch at strong volume.
     const uint32_t effVol = (masterVol * stepVol + 50) / 100;
-    const uint32_t chopFreq = (uint32_t)constrain((int)st.freq / 2, 160, 1200);
-    ledcChangeFrequency(PIN_BUZZER, chopFreq, 8);
-    const uint32_t duty = 8 + (220 * effVol * effVol) / 10000;
+    const uint32_t modFreq = (uint32_t)constrain((int)st.freq / 3, 150, 650);
+    ledcChangeFrequency(PIN_BUZZER, modFreq, 8);
+    const uint32_t duty = 85 + (148 * effVol) / 100;
     ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
   } else {
-    // 0 = Active buzzer (Classic flat): all notes at masterVol
-    ledcChangeFrequency(PIN_BUZZER, 12000, 8);
-    const uint32_t duty = (masterVol >= 99) ? 256 : (8 + (248 * masterVol * masterVol) / 10000);
-    ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
+    // 0 = Active buzzer (Classic flat): pure 100% DC at full volume, or 250 Hz long-pulse PWM when dimmed
+    if (masterVol >= 98) {
+      ledcChangeFrequency(PIN_BUZZER, 250, 8);
+      ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? 0 : 256);
+    } else {
+      ledcChangeFrequency(PIN_BUZZER, 250, 8);
+      const uint32_t duty = 75 + (175 * masterVol) / 100;
+      ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
+    }
   }
 #else
   (void)st;
@@ -225,7 +240,7 @@ bool available() { return PIN_BUZZER >= 0; }
 
 void begin() {
 #if PIN_BUZZER >= 0
-  ledcAttach(PIN_BUZZER, 12000, 8);
+  ledcAttach(PIN_BUZZER, 500, 8);
   outputStep({0, 0, 0});
   if (config::settings().startupChirp && !config::settings().muted) {
     play(Sound::Chirp);  // proves the wiring at power-up

@@ -399,13 +399,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
           <button type="button" class="btn-info" style="white-space:nowrap" onclick="playCustomBox('s_customFinish')">▶ Dinle</button>
         </div>
         <div class="note-chips">
-          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Ses Kademesi Ekle (Aktif &amp; Pasif Uyumlu):</span>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','523:100@20')">Çok Kısık (%20)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','659:110@40')">Yumuşak (%40)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','784:120@60')">Orta (%60)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1047:140@80')">Güçlü (%80)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1319:220@100')">Tam Vurgu (%100)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1568:160@30')">Yankı (%30)</button>
+          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Ses &amp; Ton Kademesi Ekle:</span>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','659:110@50')">Pes / Yumuşak (%50)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','880:115@65')">Orta-Pes (%65)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1047:120@78')">Orta-Tiz (%78)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1319:140@90')">Güçlü (%90)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1760:240@100')">Tam Güç (%100)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','988:150@55')">Yankı (%55)</button>
           <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:45')">Kısa Sus (45ms)</button>
           <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:100')">Sus (100ms)</button>
           <button type="button" class="note-chip btn-danger" onclick="document.getElementById('s_customFinish').value='';saveLiveSettings()">Temizle</button>
