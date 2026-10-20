@@ -78,6 +78,7 @@ void loadDeviceSettings() {
   g_settings.buzzerVolume = sp.getUChar("vol", g_settings.buzzerVolume);
   g_settings.startupChirp = sp.getBool("chirp", g_settings.startupChirp);
   g_settings.buzzerPassive = sp.getBool("passive", g_settings.buzzerPassive);
+  g_settings.buzzerMode = sp.getUChar("bmode", g_settings.buzzerPassive ? 1 : 2);
   g_settings.buzzerActiveLow = sp.getBool("actlow", g_settings.buzzerActiveLow);
   g_settings.finishMelody = sp.getUChar("fin_mel", g_settings.finishMelody);
   g_settings.failedMelody = sp.getUChar("err_mel", g_settings.failedMelody);
@@ -165,6 +166,7 @@ bool saveSettings() {
   sp.putUChar("vol", g_settings.buzzerVolume);
   sp.putBool("chirp", g_settings.startupChirp);
   sp.putBool("passive", g_settings.buzzerPassive);
+  sp.putUChar("bmode", g_settings.buzzerMode);
   sp.putBool("actlow", g_settings.buzzerActiveLow);
   sp.putUChar("fin_mel", g_settings.finishMelody);
   sp.putUChar("err_mel", g_settings.failedMelody);

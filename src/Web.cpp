@@ -352,10 +352,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
           </div>
         </div>
         <div>
-          <label for="s_buzzerPassive">Buzzer Donanım Tipi</label>
-          <select id="s_buzzerPassive" onchange="saveLiveSettings()">
-            <option value="0">Aktif Buzzer (Sabit tonlu - Ritimle çalar)</option>
-            <option value="1">Pasif Buzzer / Piezo (Gerçek Notalar &amp; Melodi)</option>
+          <label for="s_buzzerMode">Buzzer Çalışma &amp; Melodi Modu</label>
+          <select id="s_buzzerMode" onchange="saveLiveSettings()">
+            <option value="2">✨ Aktif Buzzer - Ses Seviyesi Melodili (Önerilen)</option>
+            <option value="3">🕹️ Aktif Buzzer - Chiptune Ton Modülasyonlu</option>
+            <option value="0">🔔 Aktif Buzzer - Klasik Sabit (Yalnızca Ritim)</option>
+            <option value="1">🎼 Pasif Buzzer / Piezo (Gerçek Frekans Notaları)</option>
           </select>
         </div>
         <div>
@@ -370,17 +372,20 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     <div class="card">
       <h2>🎵 Baskı Bittiğinde Çalacak Melodi (Finish Sound)</h2>
+      <p class="hint" style="margin-bottom:10px">Aktif buzzer kullanırken <b>Ses Seviyesi Melodili</b> modu seçiliyse her adım farklı ses şiddetinde (<code>%18 → %100</code>) çalarak yükselen/alçalan melodi hissi verir.</p>
       <div class="grid">
         <div>
           <label for="s_finishMelody">Bitiş Melodisi Seçimi</label>
           <div style="display:flex;gap:8px">
             <select id="s_finishMelody" onchange="toggleCustomBoxes(); saveLiveSettings()">
-              <option value="0">1. Klasik Yükselen (C6 - E6 - G6 / 3 Bip)</option>
-              <option value="1">2. Zafer Fanfarı (C6 - E6 - G6 - C7)</option>
-              <option value="2">3. Kibar İkili Bip (Kısa &amp; Sade)</option>
-              <option value="3">4. Neşeli Arpej (5 Hızlı Nota)</option>
-              <option value="4">5. Atölye Uzun Alarm (3 Uzun Güçlü Bip)</option>
-              <option value="5">6. Özel Melodi (Aşağıdan Kendin Tasarla)</option>
+              <option value="0">1. Klasik Yükselen Kreşendo (%40 → %70 → %100)</option>
+              <option value="1">2. Zafer Fanfarı (%35 → %55 → %78 → %100)</option>
+              <option value="2">3. Kibar İkili Yankı (Yumuşak &amp; Güçlü Bip)</option>
+              <option value="3">4. Neşeli Merdiven (5 Kademeli Yükselen Ses)</option>
+              <option value="4">5. Yumuşak Dalga / Nefes (%18 → %100 → %22)</option>
+              <option value="5">6. Retro Coin &amp; Seviye Atlama (Dinamik Vurgulu)</option>
+              <option value="6">7. Atölye Uzun Alarm (3 Güçlü + Yankılı)</option>
+              <option value="7">8. Özel Melodi (Aşağıdan Ses Seviyeli Tasarla)</option>
             </select>
             <button type="button" class="btn-info" style="white-space:nowrap" onclick="testSelectedFinish()">🔊 Test Et</button>
           </div>
@@ -388,21 +393,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
       </div>
 
       <div id="customFinishBox" style="margin-top:14px">
-        <label for="s_customFinish">Özel Bitiş Melodisi Dizisi (<code>FrekansHz:SüreMs, 0:SusMs, ...</code>)</label>
+        <label for="s_customFinish">Özel Bitiş Melodisi (<code>@Ses%:SüreMs</code> veya <code>FrekansHz:SüreMs@Ses%, 0:SusMs</code>)</label>
         <div style="display:flex;gap:8px">
-          <input type="text" id="s_customFinish" maxlength="95" placeholder="1047:140,0:70,1319:140,0:70,1568:280" onchange="saveLiveSettings()">
+          <input type="text" id="s_customFinish" maxlength="155" placeholder="523:90@25,0:30,659:90@45,0:30,784:90@65,0:30,1047:110@85,0:40,1319:260@100" onchange="saveLiveSettings()">
           <button type="button" class="btn-info" style="white-space:nowrap" onclick="playCustomBox('s_customFinish')">▶ Dinle</button>
         </div>
         <div class="note-chips">
-          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Nota Ekle:</span>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','523:140')">Do (C5)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','659:140')">Mi (E5)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','784:140')">Sol (G5)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1047:140')">Do (C6)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1319:140')">Mi (E6)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1568:200')">Sol (G6)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','2093:260')">İnce Do (C7)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:80')">Sus (80ms)</button>
+          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Ses Kademesi Ekle (Aktif &amp; Pasif Uyumlu):</span>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','523:100@20')">Çok Kısık (%20)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','659:110@40')">Yumuşak (%40)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','784:120@60')">Orta (%60)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1047:140@80')">Güçlü (%80)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1319:220@100')">Tam Vurgu (%100)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','1568:160@30')">Yankı (%30)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:45')">Kısa Sus (45ms)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFinish','0:100')">Sus (100ms)</button>
           <button type="button" class="note-chip btn-danger" onclick="document.getElementById('s_customFinish').value='';saveLiveSettings()">Temizle</button>
         </div>
       </div>
@@ -415,11 +420,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
           <label for="s_failedMelody">Hata Melodisi Seçimi</label>
           <div style="display:flex;gap:8px">
             <select id="s_failedMelody" onchange="toggleCustomBoxes(); saveLiveSettings()">
-              <option value="0">1. Klasik İkili Siren (880Hz / 660Hz - 4 Bip)</option>
-              <option value="1">2. Acil SOS Mors Ritmi (... --- ...)</option>
-              <option value="2">3. Üzgün Alçalan Trombon (G5 - F#5 - F5 - E5)</option>
-              <option value="3">4. Hızlı Uyarı Alarmı (6 Seri Bip)</option>
-              <option value="4">5. Özel Hata Melodisi (Aşağıdan Kendin Tasarla)</option>
+              <option value="0">1. İkili Siren (%100 Güçlü / %38 Kısık Karşılıklı)</option>
+              <option value="1">2. Acil SOS Mors Ritmi (... --- ... Vurgulu)</option>
+              <option value="2">3. Üzgün Alçalan Ses (%100 → %72 → %46 → %22 Sönümlü)</option>
+              <option value="3">4. Kalp Atışı / Nabız Alarmı (3x Küt-Küt Darbeli)</option>
+              <option value="4">5. Hızlı Kreşendo Uyarı (6 Kademe Yükselen Bip)</option>
+              <option value="5">6. Özel Hata Melodisi (Aşağıdan Ses Seviyeli Tasarla)</option>
             </select>
             <button type="button" class="btn-info" style="white-space:nowrap" onclick="testSelectedFailed()">🔊 Test Et</button>
           </div>
@@ -427,18 +433,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
       </div>
 
       <div id="customFailedBox" style="margin-top:14px">
-        <label for="s_customFailed">Özel Hata Melodisi Dizisi (<code>FrekansHz:SüreMs, 0:SusMs, ...</code>)</label>
+        <label for="s_customFailed">Özel Hata Melodisi (<code>@Ses%:SüreMs</code> veya <code>FrekansHz:SüreMs@Ses%, 0:SusMs</code>)</label>
         <div style="display:flex;gap:8px">
-          <input type="text" id="s_customFailed" maxlength="95" placeholder="880:220,0:90,660:220,0:90,880:220,0:90,660:220" onchange="saveLiveSettings()">
+          <input type="text" id="s_customFailed" maxlength="155" placeholder="880:200@100,0:60,660:200@35,0:60,880:200@100,0:60,660:260@30" onchange="saveLiveSettings()">
           <button type="button" class="btn-info" style="white-space:nowrap" onclick="playCustomBox('s_customFailed')">▶ Dinle</button>
         </div>
         <div class="note-chips">
-          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Nota Ekle:</span>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','880:200')">La (880Hz)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','660:200')">Mi (660Hz)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','1500:100')">Tiz Bip (1500Hz)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','440:300')">Pes Bip (440Hz)</button>
-          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','0:90')">Sus (90ms)</button>
+          <span style="font-size:0.75rem;color:var(--muted);align-self:center">Ses Kademesi Ekle:</span>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','880:180@100')">Vurgu (%100)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','660:180@40')">Karşılık (%40)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','440:280@22')">Sönüm (%22)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','1500:80@90')">Kısa Darbe (%90)</button>
+          <button type="button" class="note-chip" onclick="appendNote('s_customFailed','0:70')">Sus (70ms)</button>
           <button type="button" class="note-chip btn-danger" onclick="document.getElementById('s_customFailed').value='';saveLiveSettings()">Temizle</button>
         </div>
       </div>
@@ -660,8 +666,8 @@ function fmtMin(m) {
 function toggleCustomBoxes() {
   const fm = document.getElementById('s_finishMelody').value;
   const em = document.getElementById('s_failedMelody').value;
-  document.getElementById('customFinishBox').style.opacity = (fm === '5') ? '1' : '0.75';
-  document.getElementById('customFailedBox').style.opacity = (em === '4') ? '1' : '0.75';
+  document.getElementById('customFinishBox').style.opacity = (fm === '7') ? '1' : '0.78';
+  document.getElementById('customFailedBox').style.opacity = (em === '5') ? '1' : '0.78';
 }
 
 function appendNote(inputId, pair) {
@@ -688,7 +694,7 @@ async function soundCmd(body) {
 
 function testSelectedFinish() {
   const preset = parseInt(document.getElementById('s_finishMelody').value, 10);
-  if (preset === 5) {
+  if (preset === 7) {
     playCustomBox('s_customFinish');
   } else {
     soundCmd({
@@ -696,7 +702,7 @@ function testSelectedFinish() {
       sound: 'finish',
       preset,
       volume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
-      passive: document.getElementById('s_buzzerPassive').value === '1',
+      buzzerMode: parseInt(document.getElementById('s_buzzerMode').value, 10),
       activeLow: document.getElementById('s_buzzerActiveLow').value === '1'
     });
   }
@@ -704,7 +710,7 @@ function testSelectedFinish() {
 
 function testSelectedFailed() {
   const preset = parseInt(document.getElementById('s_failedMelody').value, 10);
-  if (preset === 4) {
+  if (preset === 5) {
     playCustomBox('s_customFailed');
   } else {
     soundCmd({
@@ -712,7 +718,7 @@ function testSelectedFailed() {
       sound: 'failed',
       preset,
       volume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
-      passive: document.getElementById('s_buzzerPassive').value === '1',
+      buzzerMode: parseInt(document.getElementById('s_buzzerMode').value, 10),
       activeLow: document.getElementById('s_buzzerActiveLow').value === '1'
     });
   }
@@ -726,7 +732,7 @@ function playCustomBox(id) {
     action: 'custom',
     pattern,
     volume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
-    passive: document.getElementById('s_buzzerPassive').value === '1',
+    buzzerMode: parseInt(document.getElementById('s_buzzerMode').value, 10),
     activeLow: document.getElementById('s_buzzerActiveLow').value === '1'
   });
 }
@@ -896,7 +902,7 @@ async function loadAllConfig() {
     document.getElementById('s_buzzerVolume').value = s.buzzerVolume ?? 100;
     document.getElementById('volVal').textContent = s.buzzerVolume ?? 100;
     document.getElementById('s_startupChirp').checked = s.startupChirp !== false;
-    document.getElementById('s_buzzerPassive').value = s.buzzerPassive ? '1' : '0';
+    document.getElementById('s_buzzerMode').value = String(s.buzzerMode ?? 2);
     document.getElementById('s_buzzerActiveLow').value = s.buzzerActiveLow ? '1' : '0';
     document.getElementById('s_finishMelody').value = String(s.finishMelody ?? 0);
     document.getElementById('s_failedMelody').value = String(s.failedMelody ?? 0);
@@ -934,11 +940,13 @@ async function loadAllConfig() {
 }
 
 async function saveLiveSettings(notify = false) {
+  const bmode = parseInt(document.getElementById('s_buzzerMode').value, 10);
   const payload = {
     muted: !document.getElementById('s_enableSound').checked,
     buzzerVolume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
     startupChirp: document.getElementById('s_startupChirp').checked,
-    buzzerPassive: document.getElementById('s_buzzerPassive').value === '1',
+    buzzerMode: isNaN(bmode) ? 2 : bmode,
+    buzzerPassive: bmode === 1,
     buzzerActiveLow: document.getElementById('s_buzzerActiveLow').value === '1',
     finishMelody: parseInt(document.getElementById('s_finishMelody').value, 10),
     failedMelody: parseInt(document.getElementById('s_failedMelody').value, 10),
@@ -1113,6 +1121,7 @@ void handleGetConfig() {
   st["muted"] = ds.muted;
   st["buzzerVolume"] = ds.buzzerVolume;
   st["startupChirp"] = ds.startupChirp;
+  st["buzzerMode"] = ds.buzzerMode;
   st["buzzerPassive"] = ds.buzzerPassive;
   st["buzzerActiveLow"] = ds.buzzerActiveLow;
   st["finishMelody"] = ds.finishMelody;
@@ -1164,10 +1173,16 @@ void handlePostSettings() {
   if (doc["muted"].is<bool>()) ds.muted = doc["muted"].as<bool>();
   if (doc["buzzerVolume"].is<int>()) ds.buzzerVolume = (uint8_t)constrain(doc["buzzerVolume"].as<int>(), 1, 100);
   if (doc["startupChirp"].is<bool>()) ds.startupChirp = doc["startupChirp"].as<bool>();
-  if (doc["buzzerPassive"].is<bool>()) ds.buzzerPassive = doc["buzzerPassive"].as<bool>();
+  if (doc["buzzerMode"].is<int>()) {
+    ds.buzzerMode = (uint8_t)constrain(doc["buzzerMode"].as<int>(), 0, 3);
+    ds.buzzerPassive = (ds.buzzerMode == 1);
+  } else if (doc["buzzerPassive"].is<bool>()) {
+    ds.buzzerPassive = doc["buzzerPassive"].as<bool>();
+    ds.buzzerMode = ds.buzzerPassive ? 1 : 2;
+  }
   if (doc["buzzerActiveLow"].is<bool>()) ds.buzzerActiveLow = doc["buzzerActiveLow"].as<bool>();
-  if (doc["finishMelody"].is<int>()) ds.finishMelody = (uint8_t)constrain(doc["finishMelody"].as<int>(), 0, 5);
-  if (doc["failedMelody"].is<int>()) ds.failedMelody = (uint8_t)constrain(doc["failedMelody"].as<int>(), 0, 4);
+  if (doc["finishMelody"].is<int>()) ds.finishMelody = (uint8_t)constrain(doc["finishMelody"].as<int>(), 0, 7);
+  if (doc["failedMelody"].is<int>()) ds.failedMelody = (uint8_t)constrain(doc["failedMelody"].as<int>(), 0, 5);
   if (doc["customFinish"].is<const char*>())
     strlcpy(ds.customFinish, doc["customFinish"].as<const char*>(), sizeof ds.customFinish);
   if (doc["customFailed"].is<const char*>())
@@ -1215,7 +1230,13 @@ void handlePostSound() {
 
   DeviceSettings& ds = config::settings();
   if (doc["volume"].is<int>()) ds.buzzerVolume = (uint8_t)constrain(doc["volume"].as<int>(), 1, 100);
-  if (doc["passive"].is<bool>()) ds.buzzerPassive = doc["passive"].as<bool>();
+  if (doc["buzzerMode"].is<int>()) {
+    ds.buzzerMode = (uint8_t)constrain(doc["buzzerMode"].as<int>(), 0, 3);
+    ds.buzzerPassive = (ds.buzzerMode == 1);
+  } else if (doc["passive"].is<bool>()) {
+    ds.buzzerPassive = doc["passive"].as<bool>();
+    ds.buzzerMode = ds.buzzerPassive ? 1 : 2;
+  }
   if (doc["activeLow"].is<bool>()) ds.buzzerActiveLow = doc["activeLow"].as<bool>();
 
   const char* action = doc["action"] | "";

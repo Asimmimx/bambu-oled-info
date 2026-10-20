@@ -19,14 +19,15 @@ struct PrinterConfig {
 struct DeviceSettings {
   // Buzzer & audio
   bool muted = false;
-  uint8_t buzzerVolume = 100;  // 1..100 % (PWM duty cycle control)
+  uint8_t buzzerVolume = 100;  // 1..100 % master volume
   bool startupChirp = true;
   bool buzzerPassive = (BUZZER_PASSIVE != 0);
+  uint8_t buzzerMode = (BUZZER_PASSIVE != 0) ? 1 : 2;  // 0=Active flat, 1=Passive, 2=Active Melodic (volume+mod)
   bool buzzerActiveLow = (BUZZER_ACTIVE_LOW != 0);
-  uint8_t finishMelody = 0;  // 0..4 preset, 5 = customFinish
-  uint8_t failedMelody = 0;  // 0..3 preset, 4 = customFailed
-  char customFinish[96] = "1047:140,0:70,1319:140,0:70,1568:280";
-  char customFailed[96] = "880:220,0:90,660:220,0:90,880:220,0:90,660:220";
+  uint8_t finishMelody = 0;  // 0..6 preset, 7 = customFinish
+  uint8_t failedMelody = 0;  // 0..4 preset, 5 = customFailed
+  char customFinish[160] = "523:110@30,0:40,784:110@55,0:40,1047:120@80,0:50,1568:260@100,0:60,1047:180@35";
+  char customFailed[160] = "980:180@100,0:60,520:200@45,0:60,980:180@100,0:60,440:320@30";
 
   // Display & UI behaviour
   uint8_t oledContrast = 255;  // 1..255
