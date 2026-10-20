@@ -75,6 +75,7 @@ void loadDeviceSettings() {
   }
   g_hasCustom = true;
   g_settings.muted = sp.getBool("muted", g_settings.muted);
+  g_settings.buzzerVolume = sp.getUChar("vol", g_settings.buzzerVolume);
   g_settings.startupChirp = sp.getBool("chirp", g_settings.startupChirp);
   g_settings.buzzerPassive = sp.getBool("passive", g_settings.buzzerPassive);
   g_settings.buzzerActiveLow = sp.getBool("actlow", g_settings.buzzerActiveLow);
@@ -161,6 +162,7 @@ bool saveSettings() {
   if (!sp.begin(kSetNamespace, false)) return false;
   sp.putBool("saved", true);
   sp.putBool("muted", g_settings.muted);
+  sp.putUChar("vol", g_settings.buzzerVolume);
   sp.putBool("chirp", g_settings.startupChirp);
   sp.putBool("passive", g_settings.buzzerPassive);
   sp.putBool("actlow", g_settings.buzzerActiveLow);

@@ -341,6 +341,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
           </div>
           <input type="checkbox" class="toggle" id="s_startupChirp" onchange="saveLiveSettings()">
         </div>
+        <div style="grid-column: 1 / -1">
+          <label for="s_buzzerVolume">Buzzer Ses Seviyesi (Volume): <b id="volVal">100</b>%</label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input type="range" id="s_buzzerVolume" min="1" max="100" value="100"
+                   oninput="document.getElementById('volVal').textContent=this.value"
+                   onchange="saveLiveSettings()">
+            <button type="button" class="btn-info btn-sm" style="white-space:nowrap"
+                    onclick="soundCmd({action:'test',sound:'chirp',volume:parseInt(document.getElementById('s_buzzerVolume').value,10)})">🔊 Seviyeyi Dene</button>
+          </div>
+        </div>
         <div>
           <label for="s_buzzerPassive">Buzzer Donanım Tipi</label>
           <select id="s_buzzerPassive" onchange="saveLiveSettings()">
@@ -685,6 +695,7 @@ function testSelectedFinish() {
       action: 'test',
       sound: 'finish',
       preset,
+      volume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
       passive: document.getElementById('s_buzzerPassive').value === '1',
       activeLow: document.getElementById('s_buzzerActiveLow').value === '1'
     });
@@ -700,6 +711,7 @@ function testSelectedFailed() {
       action: 'test',
       sound: 'failed',
       preset,
+      volume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
       passive: document.getElementById('s_buzzerPassive').value === '1',
       activeLow: document.getElementById('s_buzzerActiveLow').value === '1'
     });
@@ -713,6 +725,7 @@ function playCustomBox(id) {
   soundCmd({
     action: 'custom',
     pattern,
+    volume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
     passive: document.getElementById('s_buzzerPassive').value === '1',
     activeLow: document.getElementById('s_buzzerActiveLow').value === '1'
   });
@@ -880,6 +893,8 @@ async function loadAllConfig() {
 
     const s = d.settings || {};
     document.getElementById('s_enableSound').checked = !s.muted;
+    document.getElementById('s_buzzerVolume').value = s.buzzerVolume ?? 100;
+    document.getElementById('volVal').textContent = s.buzzerVolume ?? 100;
     document.getElementById('s_startupChirp').checked = s.startupChirp !== false;
     document.getElementById('s_buzzerPassive').value = s.buzzerPassive ? '1' : '0';
     document.getElementById('s_buzzerActiveLow').value = s.buzzerActiveLow ? '1' : '0';
@@ -921,6 +936,7 @@ async function loadAllConfig() {
 async function saveLiveSettings(notify = false) {
   const payload = {
     muted: !document.getElementById('s_enableSound').checked,
+    buzzerVolume: parseInt(document.getElementById('s_buzzerVolume').value, 10) || 100,
     startupChirp: document.getElementById('s_startupChirp').checked,
     buzzerPassive: document.getElementById('s_buzzerPassive').value === '1',
     buzzerActiveLow: document.getElementById('s_buzzerActiveLow').value === '1',
@@ -1095,6 +1111,7 @@ void handleGetConfig() {
   const DeviceSettings& ds = config::settings();
   JsonObject st = doc["settings"].to<JsonObject>();
   st["muted"] = ds.muted;
+  st["buzzerVolume"] = ds.buzzerVolume;
   st["startupChirp"] = ds.startupChirp;
   st["buzzerPassive"] = ds.buzzerPassive;
   st["buzzerActiveLow"] = ds.buzzerActiveLow;
@@ -1145,6 +1162,7 @@ void handlePostSettings() {
 
   DeviceSettings& ds = config::settings();
   if (doc["muted"].is<bool>()) ds.muted = doc["muted"].as<bool>();
+  if (doc["buzzerVolume"].is<int>()) ds.buzzerVolume = (uint8_t)constrain(doc["buzzerVolume"].as<int>(), 1, 100);
   if (doc["startupChirp"].is<bool>()) ds.startupChirp = doc["startupChirp"].as<bool>();
   if (doc["buzzerPassive"].is<bool>()) ds.buzzerPassive = doc["buzzerPassive"].as<bool>();
   if (doc["buzzerActiveLow"].is<bool>()) ds.buzzerActiveLow = doc["buzzerActiveLow"].as<bool>();
@@ -1196,6 +1214,7 @@ void handlePostSound() {
   }
 
   DeviceSettings& ds = config::settings();
+  if (doc["volume"].is<int>()) ds.buzzerVolume = (uint8_t)constrain(doc["volume"].as<int>(), 1, 100);
   if (doc["passive"].is<bool>()) ds.buzzerPassive = doc["passive"].as<bool>();
   if (doc["activeLow"].is<bool>()) ds.buzzerActiveLow = doc["activeLow"].as<bool>();
 

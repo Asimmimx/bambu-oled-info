@@ -71,24 +71,24 @@ volatile int8_t g_pendingPreset = -1;  // -1 = use config::settings()
 const Pattern* g_current = nullptr;
 uint8_t g_step = 0;
 uint32_t g_stepAt = 0;
-bool g_lastPassive = false;
 
 void output(uint16_t freq) {
 #if PIN_BUZZER >= 0
   const DeviceSettings& ds = config::settings();
+  if (freq == 0) {
+    ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? 256 : 0);
+    return;
+  }
+  const uint32_t vol = (uint32_t)constrain((int)ds.buzzerVolume, 1, 100);
   if (ds.buzzerPassive) {
-    g_lastPassive = true;
-    if (freq) tone(PIN_BUZZER, freq);
-    else noTone(PIN_BUZZER);
+    ledcChangeFrequency(PIN_BUZZER, freq, 8);
+    // 1..128 (50% duty cycle is maximum volume on a passive piezo/magnetic buzzer)
+    const uint32_t duty = 1 + (127 * vol * vol) / 10000;
+    ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
   } else {
-    if (g_lastPassive) {
-      noTone(PIN_BUZZER);
-      delay(5);
-      pinMode(PIN_BUZZER, OUTPUT);
-      g_lastPassive = false;
-    }
-    const bool on = freq != 0;
-    digitalWrite(PIN_BUZZER, (on != ds.buzzerActiveLow) ? HIGH : LOW);
+    ledcChangeFrequency(PIN_BUZZER, 4000, 8);
+    const uint32_t duty = (vol >= 100) ? 256 : (16 + (240 * vol * vol) / 10000);
+    ledcWrite(PIN_BUZZER, ds.buzzerActiveLow ? (256 - duty) : duty);
   }
 #else
   (void)freq;
@@ -140,7 +140,7 @@ bool available() { return PIN_BUZZER >= 0; }
 
 void begin() {
 #if PIN_BUZZER >= 0
-  pinMode(PIN_BUZZER, OUTPUT);
+  ledcAttach(PIN_BUZZER, 2000, 8);
   output(0);
   if (config::settings().startupChirp && !config::settings().muted) {
     play(Sound::Chirp);  // proves the wiring at power-up

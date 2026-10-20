@@ -58,7 +58,7 @@ Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama
 - Ayarlanabilir pinler, süreler ve saat dilimi.
 - **Dahili web kontrol paneli** (`http://<cihaz-ip>` veya Wi-Fi yoksa `BambuMonitor-Setup` kurulum ağı üzerinden `http://192.168.4.1`):
   - **Canlı durum & uzaktan OLED kontrolü**: tüm yazıcıları tarayıcıda canlı izleyin, bir yazıcı kartına tıklayarak OLED ekranı o yazıcıya odaklayın, ekran sayfalarını değiştirin, otomatik geçişi/uyku modunu yönetin veya OLED ekrana anlık mesaj (toast) gönderin.
-  - **Ses & melodi stüdyosu**: sesleri anında test edin, 5 bitiş melodisi ve 4 hata melodisi arasından seçim yapın, kendi özel melodinizi (`frekans:süre`) tasarlayın, aktif/pasif buzzer modunu ve sinyal yönünü yeniden yükleme yapmadan değiştirin.
+  - **Ses & melodi stüdyosu**: buzzer ses seviyesini (`%1-%100`) ayarlayın, sesleri anında test edin, 5 bitiş melodisi ve 4 hata melodisi arasından seçim yapın, kendi özel melodinizi (`frekans:süre`) tasarlayın, aktif/pasif buzzer modunu ve sinyal yönünü yeniden yükleme yapmadan değiştirin.
   - **Ekran, düğme & zamanlayıcılar**: OLED parlaklığını (contrast), 180° ekran döndürmeyi, ters renk modunu, enkoder yönünü/hassasiyetini, geçiş sürelerini ve saat dilimini canlı ayarlayın.
   - **Wi-Fi, yazıcılar & Bambu Cloud**: 8 yazıcıya kadar LAN/Cloud listesini ve Bambu Cloud anahtarını kalıcı hafızada (NVS) yönetin.
 - Hiç yazıcı olmadan tüm ekranları görmek için sahte yazıcılı **demo yazılımı**.
@@ -209,7 +209,7 @@ Buzzer'ınız yalnızca tek bir nota çalıyorsa **aktif** buzzer'dır. Varsayı
 
 - Yalnızca **canlı** görülen değişiklikler duyurulur: cihaz açıldığında zaten bitmiş ya da hatalı olan yazıcı sessiz kalır; "bitti", yazıcının daha önce basıyor, duraklamış ya da hazırlanıyor olduğu anlamına gelir. Otomatik modda her yazıcı yaklaşık dakikada bir ziyaret edilir, yani ekranda olmayan bir yazıcının uyarısı yaklaşık bir dakikaya kadar geç gelebilir.
 - Sesi kapatmak ya da açmak için düğme butonunu **2,5 saniye** basılı tutun (ya da web panelini kullanın); sessiz durumu NVS hafızasına kaydedilir ve yeniden başlatınca hatırlanır.
-- Web panelindeki (`http://<cihaz-ip>`) **Ses & Melodi Stüdyosu** sekmesinden sesleri canlı test edebilir, aktif/pasif buzzer modunu ve sinyal yönünü (`Active-LOW`) değiştirebilir, **5 bitiş melodisi** ve **4 hata melodisi** arasından seçim yapabilir ya da kendi özel melodinizi (`frekans:süre, 0:sus, ...`) tasarlayabilirsiniz.
+- Web panelindeki (`http://<cihaz-ip>`) **Ses & Melodi Stüdyosu** sekmesinden **buzzer ses seviyesini (`%1-%100`)** kısabilir, sesleri canlı test edebilir, aktif/pasif buzzer modunu ve sinyal yönünü (`Active-LOW`) değiştirebilir, **5 bitiş melodisi** ve **4 hata melodisi** arasından seçim yapabilir ya da kendi özel melodinizi (`frekans:süre, 0:sus, ...`) tasarlayabilirsiniz.
 - Demo yazılımı (`pio run -e demo -t upload`), sahte yazıcıları bittikçe ve hata verdikçe sesleri çalar; bağlantınızı çevrimdışı denemenin kolay yolu budur.
 - `settings.h` derleme varsayılanları: `PIN_BUZZER` (`-1` = buzzer yok), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
 

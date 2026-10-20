@@ -19,6 +19,7 @@ struct PrinterConfig {
 struct DeviceSettings {
   // Buzzer & audio
   bool muted = false;
+  uint8_t buzzerVolume = 100;  // 1..100 % (PWM duty cycle control)
   bool startupChirp = true;
   bool buzzerPassive = (BUZZER_PASSIVE != 0);
   bool buzzerActiveLow = (BUZZER_ACTIVE_LOW != 0);

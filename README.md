@@ -58,7 +58,7 @@ Other models should work in principle, because the status protocol is the same, 
 - Configurable pins, timings and time zone.
 - **Built-in web control panel** (`http://<device-ip>` or fallback setup AP `BambuMonitor-Setup` at `http://192.168.4.1`):
   - **Live dashboard & remote OLED control**: see all printers live in your browser, click a printer card to focus it on the OLED, switch OLED views, toggle auto-cycling/sleep, or send a toast message to the screen.
-  - **Sound & melody studio**: test sounds live, choose from 5 finish melodies and 4 error melodies, compose custom melodies (`freq:ms`), and switch active/passive buzzer mode or polarity without re-flashing.
+  - **Sound & melody studio**: adjust buzzer volume (`1-100%`), test sounds live, choose from 5 finish melodies and 4 error melodies, compose custom melodies (`freq:ms`), and switch active/passive buzzer mode or polarity without re-flashing.
   - **Display, knob & timers**: adjust OLED brightness (contrast), flip 180°, invert colors, reverse knob direction, set step sensitivity, timings and time zone live.
   - **Wi-Fi, printers & Bambu Cloud**: manage up to 8 LAN/Cloud printers and update the Bambu Cloud token in NVS flash.
 - **Demo build** with fake printers to preview every screen without any printer.
@@ -209,7 +209,7 @@ If your buzzer can only play a single note, it is an **active** one. That is the
 
 - Only changes seen **live** are announced: a printer that was already finished or failed when the device started stays quiet, and "finished" means the printer was printing, paused or preparing before. In auto mode every printer is visited about once a minute, so an alert for a printer that is not on screen can arrive up to about a minute late.
 - Hold the knob button for **2.5 seconds** (or use the web panel) to turn the sound off or on; the mute state is saved in NVS and remembered after a restart.
-- From the **Sound & Melody Studio** tab in the web panel (`http://<device-ip>`), you can test sounds live, switch between active and passive buzzer modes or invert polarity (`Active-LOW`), choose from **5 finish melodies** and **4 error melodies**, or compose your own custom melody (`freq:ms, 0:pause, ...`).
+- From the **Sound & Melody Studio** tab in the web panel (`http://<device-ip>`), you can adjust the **buzzer volume (`1-100%`)**, test sounds live, switch between active and passive buzzer modes or invert polarity (`Active-LOW`), choose from **5 finish melodies** and **4 error melodies**, or compose your own custom melody (`freq:ms, 0:pause, ...`).
 - The demo build (`pio run -e demo -t upload`) plays the sounds as its fake printers finish and fail, which is an easy way to try your wiring offline.
 - Compile-time defaults in `settings.h`: `PIN_BUZZER` (`-1` = no buzzer), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
 
