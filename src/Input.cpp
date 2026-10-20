@@ -6,6 +6,7 @@ namespace {
 
 constexpr uint32_t DEBOUNCE_MS = 25;
 constexpr uint32_t LONG_PRESS_MS = 800;
+constexpr uint32_t VERY_LONG_PRESS_MS = 2500;
 
 // Quadrature decoder, indexed by (previous AB << 2 | current AB). Invalid (bouncy) jumps are 0.
 const int8_t kStep[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
@@ -60,7 +61,7 @@ Event poll() {
     return right ? Event::Right : Event::Left;
   }
 
-  // Push button (active low): short click on release, long press while held
+  // Push button (active low): click or long press on release, very long press while held
   const uint32_t now = millis();
   const bool pressed = digitalRead(PIN_ENC_SW) == LOW;
   if (pressed != g_down && now - g_lastChange > DEBOUNCE_MS) {
@@ -70,12 +71,12 @@ Event poll() {
       g_downAt = now;
       g_longFired = false;
     } else if (!g_longFired) {
-      return Event::Click;
+      return (now - g_downAt >= LONG_PRESS_MS) ? Event::LongPress : Event::Click;
     }
   }
-  if (g_down && !g_longFired && now - g_downAt >= LONG_PRESS_MS) {
+  if (g_down && !g_longFired && now - g_downAt >= VERY_LONG_PRESS_MS) {
     g_longFired = true;
-    return Event::LongPress;
+    return Event::VeryLongPress;
   }
   return Event::None;
 }

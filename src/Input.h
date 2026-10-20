@@ -2,7 +2,8 @@
 
 namespace input {
 
-enum class Event : unsigned char { None, Left, Right, Click, LongPress };
+// LongPress: held 0.8-2.5 s, reported on release. VeryLongPress: reported as soon as 2.5 s are reached.
+enum class Event : unsigned char { None, Left, Right, Click, LongPress, VeryLongPress };
 
 void begin();
 

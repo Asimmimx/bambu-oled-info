@@ -20,18 +20,20 @@ A small desk gadget that shows what your **Bambu Lab printers** are doing, at a 
 2. [Features](#features)
 3. [The screens and the knob](#the-screens-and-the-knob)
 4. [What you need](#what-you-need)
-5. [Wiring](#wiring)
-6. [Setup, step by step](#setup-step-by-step)
-7. [Printers that are not on your Wi-Fi](#printers-that-are-not-on-your-wi-fi)
-8. [Configuration reference](#configuration-reference)
-9. [How it works](#how-it-works)
-10. [Project layout](#project-layout)
-11. [The helper tools](#the-helper-tools)
-12. [Security and privacy](#security-and-privacy)
-13. [Troubleshooting](#troubleshooting)
-14. [Limitations and ideas](#limitations-and-ideas)
-15. [Contributing](#contributing)
-16. [Credits and license](#credits-and-license)
+5. [Which ESP32 works?](#which-esp32-works)
+6. [Wiring](#wiring)
+7. [Buzzer (optional)](#buzzer-optional)
+8. [Setup, step by step](#setup-step-by-step)
+9. [Printers that are not on your Wi-Fi](#printers-that-are-not-on-your-wi-fi)
+10. [Configuration reference](#configuration-reference)
+11. [How it works](#how-it-works)
+12. [Project layout](#project-layout)
+13. [The helper tools](#the-helper-tools)
+14. [Security and privacy](#security-and-privacy)
+15. [Troubleshooting](#troubleshooting)
+16. [Limitations and ideas](#limitations-and-ideas)
+17. [Contributing](#contributing)
+18. [Credits and license](#credits-and-license)
 
 ---
 
@@ -40,7 +42,7 @@ A small desk gadget that shows what your **Bambu Lab printers** are doing, at a 
 | | |
 |---|---|
 | **Verified on hardware** | ESP32-C3 on a CH343 USB-UART board (two boards), SSD1306 128x32 OLED, KY-040 knob. Three **A1 mini** printers (firmware 01.08.01.00) on the LAN, in normal cloud mode, **without** LAN Only Mode. Three further printers in another house (an A1, an X2D and an A2L, according to their owner) read through Bambu Cloud. |
-| **Not verified** | P1 / X1 / H2 series and every other model. Failure states (an actual print error) were only exercised with the built-in demo, not with a real failing printer. |
+| **Not verified** | The buzzer (written and built, not yet run on hardware), other ESP32 chips (they build, see [Which ESP32 works?](#which-esp32-works)), P1 / X1 / H2 series and every other printer model. Failure states (an actual print error) were only exercised with the built-in demo, not with a real failing printer. |
 
 Other models should work in principle, because the status protocol is the same, but I could not test them. Reports are very welcome, see [Contributing](#contributing).
 
@@ -51,6 +53,7 @@ Other models should work in principle, because the status protocol is the same, 
 - Works with printers that send **partial** status (A1 family) as well as full status.
 - **Finish clock** ("done at 17:42"), from the printer's remaining time and NTP.
 - **Cloud mode** for printers on another network, with a verified TLS connection.
+- An optional **buzzer** announces finished and failed prints (active or passive buzzer; hold the knob button 2.5 s to mute).
 - Errors **flash** the header, and a finished print flashes its state tag; an idle farm **switches the screen off** (OLED burn-in) and wakes up when something happens.
 - English or Turkish labels (`UI_LANG_TR`), configurable pins, timings and time zone.
 - **Demo build** with fake printers to preview every screen without any printer.
@@ -65,7 +68,8 @@ A single **click** steps through four screens: **Progress → Overview → Detai
 | Nothing | **Auto mode**: each printer is shown for 10 s (`CAROUSEL_MS`), then the next one |
 | Turn the knob | Choose a printer; auto mode pauses and resumes after 45 s without touching (`MANUAL_TIMEOUT_MS`) |
 | Click | Next screen (see above) |
-| Long press (0.8 s) | Auto mode **on / off**; a message stays on screen for 3 s |
+| Long press (0.8 - 2.5 s, acts on release) | Auto mode **on / off**; a message stays on screen for 3 s |
+| Very long press (2.5 s) | Sound **on / off** (needs a buzzer) |
 | Any touch while the screen is off | Wakes the screen (the touch is not used for anything else) |
 
 The sketches below are layouts, not photographs. The real display is 128x32 pixels, about 21 characters wide.
@@ -128,9 +132,30 @@ Speed mode and percentage, part-cooling fan, nozzle diameter, the filament in us
 | **ESP32-C3** dev board | Tested on a board with a CH343 USB-UART bridge. Native-USB boards (e.g. SuperMini) work with a small change, see [Configuration reference](#configuration-reference). |
 | **0.91" OLED, 128x32, SSD1306, I2C** | Four pins: GND, VCC, SCK (= SCL), SDA. Address `0x3C` (`0x3D` is detected too). |
 | **KY-040 rotary encoder** | Optional, but it is how you choose a printer. |
+| Buzzer | Optional: active or passive, see [Buzzer](#buzzer-optional). |
 | Jumper wires, USB cable | |
 | [PlatformIO](https://platformio.org/) | CLI or the VS Code extension. |
 | Python 3 | Only for the helper tools; they need nothing but the standard library. |
+
+## Which ESP32 works?
+
+The code is plain Arduino (Arduino core 3 on ESP-IDF 5) and uses nothing that is specific to one chip, but I could only **run** it on an ESP32-C3. The other chips below were **built** for this table; their default pins are in [`include/settings.h`](include/settings.h).
+
+| Chip | Status | Notes |
+|---|---|---|
+| ESP32-C3 | ✅ Tested | Runs on hardware (CH343 boards). Single core, no PSRAM; about 100 KB of heap stay free while connected. |
+| ESP32-S3 | 🟡 Should work | Builds (`pio run -e esp32s3`), not run on hardware. More RAM than the C3. |
+| ESP32 (classic) | 🟡 Should work | Builds (`-e esp32`), not run on hardware. GPIO 6-11 are the flash, so the default pins differ from those of the C3. |
+| ESP32-C6 | 🟡 Should work | Builds (`-e esp32c6`), not run on hardware. Single core like the C3. |
+| ESP32-S2 | 🟡 Should work | Builds (`-e esp32s2`), not run on hardware. RAM headroom not measured. |
+| ESP32-C2 | ⚠️ Probably too little RAM | Not tried. It has less RAM than the C3, and this firmware needs a TLS session plus a 24 KB message buffer. |
+| ESP32-C5 / C61 | ❔ Unknown | Not tried. |
+| ESP32-H2 | ❌ No | No Wi-Fi (Thread / Zigbee / BLE only). |
+| ESP32-P4 | ❌ No | No built-in Wi-Fi. |
+
+✅ run on hardware · 🟡 builds, not run on hardware · ⚠️ likely RAM-limited · ❔ not tried · ❌ cannot work
+
+To use another chip, flash with its environment (`pio run -e esp32s3 -t upload`) and wire the display, knob and buzzer to that chip's default pins from `settings.h` (or change them). The C3 environment forces 40 MHz DIO flash because the boards I have need it; the other environments keep their board's defaults, so if one stays silent after flashing, try the same two settings (see [Troubleshooting](#troubleshooting)). Reports of a chip that runs, or does not, are very welcome.
 
 ## Wiring
 
@@ -142,10 +167,45 @@ Speed mode and percentage, part-cooling fan, nozzle diameter, the filament in us
 | SDA | GPIO4 | | + | 3V3 (**not** 5V) |
 | | | | GND | GND |
 
+- These are the **ESP32-C3** pins; other chips have their own defaults in `settings.h`. The optional buzzer goes to GPIO3 and GND, see [Buzzer](#buzzer-optional).
 - Go by the **pin labels** on your modules, not their order; the order differs between manufacturers.
 - Power the KY-040 `+` from 3V3: the module has pull-up resistors to that pin, so its signals stay at 3.3 V.
 - The pins can be changed in [`include/settings.h`](include/settings.h). Avoid GPIO 2, 8, 9 (boot straps), 11-17 (flash), 18-19 (USB) and 20-21 (UART).
 - No extra parts are needed: the KY-040 and most OLED modules already carry their own pull-up resistors, and the firmware also enables the internal pull-ups on the knob pins.
+
+## Buzzer (optional)
+
+A buzzer makes the device useful from across the room: it sounds when a print **finishes** and when one **fails**, and chirps once at power-up so you know it is wired correctly.
+
+### Active or passive?
+
+| | Active buzzer | Passive buzzer |
+|---|---|---|
+| Inside | its own oscillator | just a coil or piezo, like a tiny speaker |
+| Sound | one fixed tone, on / off only | any pitch the chip supplies: notes and melodies |
+| Quick test | 3.3 V on its pins: it **beeps** | 3.3 V on its pins: only a **click** |
+| In this project | sounds differ by **rhythm** | plays real notes |
+
+If your buzzer can only play a single note, it is an **active** one. That is the default setting (`BUZZER_PASSIVE 0`). For melodies get a passive buzzer and set `BUZZER_PASSIVE 1`.
+
+### Wiring
+
+- **Module with three pins (S, +, -):** `S` → GPIO3, `+` → 3V3, `-` → GND. Many of these modules switch on a LOW signal: if it never stops sounding, or stays silent, set `BUZZER_ACTIVE_LOW 1`.
+- **Bare buzzer with two pins:** `+` → GPIO3 and `-` → GND, **only if it draws less than about 20 mA** (small passive piezo discs do). A bare active buzzer often draws more: use a transistor, e.g. an NPN such as a BC547 or 2N2222: GPIO3 → 1 kΩ resistor → base, emitter → GND, buzzer `+` → 3V3, buzzer `-` → collector.
+- Never connect a part that expects 5 V signals directly to a GPIO.
+
+### Sounds
+
+| Event | Active buzzer | Passive buzzer |
+|---|---|---|
+| Power-up | one short beep | one short beep |
+| Print finished | beep, beep, long beep | rising notes (C6, E6, G6) |
+| Print failed or an error code appears | four beeps | four alternating notes, high and low |
+
+- Only changes seen **live** are announced: a printer that was already finished or failed when the device started stays quiet, and "finished" means the printer was printing, paused or preparing before. In auto mode every printer is visited about once a minute, so an alert for a printer that is not on screen can arrive up to about a minute late.
+- Hold the knob button for **2.5 seconds** to turn the sound off or on (a message shows the new state; it is not remembered after a restart).
+- The demo build (`pio run -e demo -t upload`) plays the sounds as its fake printers finish and fail, which is the easy way to try your wiring.
+- Settings in `settings.h`: `PIN_BUZZER` (`-1` = no buzzer), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
 
 ## Setup, step by step
 
@@ -265,7 +325,10 @@ python tools/fetch_access_codes.py --token --cloud       # or without --token to
 | Setting | Default | Meaning |
 |---|---|---|
 | `PIN_OLED_SDA`, `PIN_OLED_SCL` | 4, 5 | I2C pins of the display |
-| `PIN_ENC_CLK`, `PIN_ENC_DT`, `PIN_ENC_SW` | 6, 7, 10 | Knob pins |
+| `PIN_ENC_CLK`, `PIN_ENC_DT`, `PIN_ENC_SW` | 6, 7, 10 | Knob pins (the defaults here are for the C3; other chips have their own) |
+| `PIN_BUZZER` | 3 | Buzzer pin; `-1` = no buzzer |
+| `BUZZER_PASSIVE` | 0 | 0 = active buzzer (rhythm only), 1 = passive (notes) |
+| `BUZZER_ACTIVE_LOW` | 0 | 1 if the buzzer module sounds when the pin is LOW |
 | `ENC_REVERSE` | 0 | Set to 1 if turning clockwise moves backwards |
 | `ENC_EDGES_PER_DETENT` | 4 | Try 2 if one click of the knob skips a printer |
 | `UI_LANG_TR` | 1 | 1 = Turkish labels, 0 = English |
@@ -298,6 +361,7 @@ python tools/fetch_access_codes.py --token --cloud       # or without --token to
 |---|---|
 | `esp32c3` | The real firmware |
 | `demo` | Same UI with fake printers and no Wi-Fi |
+| `esp32s3`, `esp32`, `esp32c6`, `esp32s2` | Other chips, build-tested only, see [Which ESP32 works?](#which-esp32-works) |
 
 For a board with **native USB** (no separate USB-UART chip), delete the two `-DARDUINO_USB_...` lines from `build_flags`. Other boards: change `board`. The platform is [pioarduino](https://github.com/pioarduino/platform-espressif32) (Arduino core 3), and the flash is forced to 40 MHz DIO (see [Troubleshooting](#troubleshooting)).
 
@@ -336,7 +400,7 @@ The fields used (all under `print`): `gcode_state`, `mc_percent`, `mc_remaining_
 - **Back-off.** An unreachable printer is retried every 60 s (8 s while it is on screen). Rejected credentials are retried at most once a minute, and looking at such a printer does not bring the retry forward.
 - **TLS.** Printers use self-signed certificates on your LAN, which are accepted as they are. The cloud server's certificate is checked against the built-in Mozilla CA bundle before the token is sent.
 - **File names** are converted to ASCII for the display font: Turkish letters are folded (ğ → g) and anything unsupported becomes `?`.
-- **Memory.** About 100 KB of heap stays free while connected (minimum seen: 93 KB); the firmware is about 1.2 MB in a 3 MB partition (no OTA).
+- **Memory.** About 100 KB of heap stays free while connected (minimum seen: 84 KB); the firmware is about 1.2 MB in a 3 MB partition (no OTA).
 - **Screen sleep.** If no printer is printing, paused, preparing or in error for 5 minutes, the screen turns off; a knob touch or new activity wakes it.
 - **Boot diagnostics.** The log says where the display answered (`[oled] found at 0x3C ...`) and, if it is silent on the configured pins, scans all other pin pairs to tell you where it is wired.
 
@@ -350,7 +414,8 @@ src/main.cpp              setup + loop, periodic status line
 src/Config.*              printer list and credentials (reads secrets.h)
 src/State.*               shared status table (mutex-protected)
 src/Poller.*              MQTT sessions, parsing, back-off, cloud, demo data
-src/Input.*               knob decoding (interrupts) and button (click / long press)
+src/Input.*               knob decoding (interrupts) and button (click / long / very long press)
+src/Buzzer.*              optional buzzer: patterns for active and passive buzzers
 src/Ui.*                  display, screens, carousel, toast, screen sleep
 tools/find_printers.py    list printers on the LAN (SSDP)
 tools/fetch_access_codes.py  read access codes / cloud login from your Bambu account
@@ -397,6 +462,8 @@ It makes a backup (`secrets.h.bak`), prints a table of your printers, and **neve
 | "Waiting for data" stays on screen | The printer never reported anything since power-up. The log shows `connected but no full report received` if the status request got no answer. |
 | A large printer never updates | Its messages may exceed `MQTT_BUFFER_BYTES`; the log prints the largest message seen. Raise the value. |
 | Finish time is missing | NTP has not synced (needs internet), or the printer is not printing. |
+| Buzzer silent | Check `PIN_BUZZER` and the wiring; it chirps once at power-up. A passive buzzer needs `BUZZER_PASSIVE 1` to play notes. Muted? Hold the button 2.5 s. |
+| Buzzer never stops, or sounds when it should not | The module switches on LOW: set `BUZZER_ACTIVE_LOW 1`. |
 | Letters missing in names | The font has no `ş ı ğ İ`; use plain letters in `secrets.h`. |
 
 ## Limitations and ideas
@@ -406,7 +473,7 @@ It makes a backup (`secrets.h.bak`), prints a table of your printers, and **neve
 - The cloud token cannot be refreshed by the device (Bambu's refresh endpoint is unusable), so it needs a re-flash every ~3 months. A configuration page would remove that too.
 - No over-the-air updates (the large partition replaces the OTA layout).
 - HMS notices are only counted, not decoded; the elapsed time is an estimate.
-- Ideas: a buzzer or LED when a print finishes, Home Assistant / MQTT output, a bigger display with a list view, per-printer thresholds.
+- Ideas: an LED when a print finishes, Home Assistant / MQTT output, a bigger display with a list view, per-printer thresholds.
 
 ## Contributing
 

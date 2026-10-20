@@ -20,18 +20,20 @@
 2. [Özellikler](#özellikler)
 3. [Ekranlar ve düğme](#ekranlar-ve-düğme)
 4. [Gerekenler](#gerekenler)
-5. [Bağlantı](#bağlantı)
-6. [Kurulum, adım adım](#kurulum-adım-adım)
-7. [Wi-Fi'nizde olmayan yazıcılar](#wi-finizde-olmayan-yazıcılar)
-8. [Ayar başvurusu](#ayar-başvurusu)
-9. [Nasıl çalışır](#nasıl-çalışır)
-10. [Proje yapısı](#proje-yapısı)
-11. [Yardımcı araçlar](#yardımcı-araçlar)
-12. [Güvenlik ve gizlilik](#güvenlik-ve-gizlilik)
-13. [Sorun giderme](#sorun-giderme)
-14. [Sınırlar ve fikirler](#sınırlar-ve-fikirler)
-15. [Katkı](#katkı)
-16. [Teşekkür ve lisans](#teşekkür-ve-lisans)
+5. [Hangi ESP32 çalışır?](#hangi-esp32-çalışır)
+6. [Bağlantı](#bağlantı)
+7. [Buzzer (isteğe bağlı)](#buzzer-isteğe-bağlı)
+8. [Kurulum, adım adım](#kurulum-adım-adım)
+9. [Wi-Fi'nizde olmayan yazıcılar](#wi-finizde-olmayan-yazıcılar)
+10. [Ayar başvurusu](#ayar-başvurusu)
+11. [Nasıl çalışır](#nasıl-çalışır)
+12. [Proje yapısı](#proje-yapısı)
+13. [Yardımcı araçlar](#yardımcı-araçlar)
+14. [Güvenlik ve gizlilik](#güvenlik-ve-gizlilik)
+15. [Sorun giderme](#sorun-giderme)
+16. [Sınırlar ve fikirler](#sınırlar-ve-fikirler)
+17. [Katkı](#katkı)
+18. [Teşekkür ve lisans](#teşekkür-ve-lisans)
 
 ---
 
@@ -40,7 +42,7 @@
 | | |
 |---|---|
 | **Donanımda doğrulandı** | CH343 USB-UART'lı ESP32-C3 kart (iki kart), SSD1306 128x32 OLED, KY-040 düğme. Yerel ağda, normal bulut modunda, **LAN Only Mode olmadan** 3 adet **A1 mini** (firmware 01.08.01.00). Başka evdeki 3 yazıcı (sahibine göre bir A1, bir X2D ve bir A2L) Bambu Cloud üzerinden. |
-| **Doğrulanmadı** | P1 / X1 / H2 serisi ve diğer tüm modeller. Hata durumları (gerçek bir baskı hatası) yalnızca dahili demo ile denendi, gerçek bir hatalı yazıcıyla değil. |
+| **Doğrulanmadı** | Buzzer (yazıldı ve derlendi, donanımda henüz çalıştırılmadı), diğer ESP32 çipleri (derleniyorlar, bkz. [Hangi ESP32 çalışır?](#hangi-esp32-çalışır)), P1 / X1 / H2 serisi ve diğer tüm yazıcı modelleri. Hata durumları (gerçek bir baskı hatası) yalnızca dahili demo ile denendi, gerçek bir hatalı yazıcıyla değil. |
 
 Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama deneyemedim. Raporlarınız çok değerli, bkz. [Katkı](#katkı).
 
@@ -51,6 +53,7 @@ Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama
 - **Kısmi** durum gönderen yazıcılarla (A1 ailesi) ve tam durum gönderenlerle çalışır.
 - **Bitiş saati** ("17:42'de biter"): yazıcının kalan süresi ve NTP ile hesaplanır.
 - Başka ağdaki yazıcılar için doğrulanmış TLS bağlantılı **bulut modu**.
+- İsteğe bağlı **buzzer**, biten ve hata veren baskıları duyurur (aktif ya da pasif buzzer; susturmak için düğme butonunu 2,5 sn basılı tutun).
 - Hata başlığı **yanıp söner**, biten baskının durum etiketi de; boştaki bir yazıcı grubu ekranı **kapatır** (OLED yanması için) ve bir şey olunca uyanır.
 - Türkçe ya da İngilizce etiketler (`UI_LANG_TR`), ayarlanabilir pinler, süreler ve saat dilimi.
 - Hiç yazıcı olmadan tüm ekranları görmek için sahte yazıcılı **demo yazılımı**.
@@ -65,7 +68,8 @@ Tek **tıklama** dört ekranı sırayla gezdirir: **İlerleme → Genel bakış 
 | Hiçbir şey | **Otomatik mod**: her yazıcı 10 sn gösterilir (`CAROUSEL_MS`), sonra sıradaki |
 | Düğmeyi çevirmek | Yazıcı seçer; otomatik mod durur, dokunmadan 45 sn sonra devam eder (`MANUAL_TIMEOUT_MS`) |
 | Tıklama | Sonraki ekran (yukarıdaki sıra) |
-| Uzun basış (0,8 sn) | Otomatik mod **açık / kapalı**; mesaj 3 sn ekranda kalır |
+| Uzun basış (0,8 - 2,5 sn, bırakınca işler) | Otomatik mod **açık / kapalı**; mesaj 3 sn ekranda kalır |
+| Çok uzun basış (2,5 sn) | Ses **açık / kapalı** (buzzer gerekir) |
 | Ekran kapalıyken dokunmak | Ekranı uyandırır (dokunuş başka bir şey yapmaz) |
 
 Aşağıdaki çizimler yerleşim taslağıdır, fotoğraf değildir. Gerçek ekran 128x32 pikseldir, yaklaşık 21 karakter genişliğinde.
@@ -128,9 +132,30 @@ Hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament (AMS yuvasın
 | **ESP32-C3** geliştirme kartı | CH343 USB-UART köprülü kartta denendi. Doğal USB'li kartlar (örn. SuperMini) küçük bir değişiklikle çalışır, bkz. [Ayar başvurusu](#ayar-başvurusu). |
 | **0.91" OLED, 128x32, SSD1306, I2C** | Dört pin: GND, VCC, SCK (= SCL), SDA. Adres `0x3C` (`0x3D` de bulunur). |
 | **KY-040 döner düğme** | İsteğe bağlı, ama yazıcı seçmenin yolu bu. |
+| Buzzer | İsteğe bağlı: aktif ya da pasif, bkz. [Buzzer](#buzzer-isteğe-bağlı). |
 | Jumper kablo, USB kablosu | |
 | [PlatformIO](https://platformio.org/) | CLI ya da VS Code eklentisi. |
 | Python 3 | Yalnızca yardımcı araçlar için; standart kütüphaneden başka bir şey gerekmez. |
+
+## Hangi ESP32 çalışır?
+
+Kod düz Arduino'dur (ESP-IDF 5 üzerinde Arduino çekirdeği 3) ve tek bir çipe özgü hiçbir şey kullanmaz, ama yalnızca bir ESP32-C3'te **çalıştırabildim**. Aşağıdaki diğer çipler bu tablo için **derlendi**; varsayılan pinleri [`include/settings.h`](include/settings.h) içindedir.
+
+| Çip | Durum | Notlar |
+|---|---|---|
+| ESP32-C3 | ✅ Denendi | Donanımda çalışıyor (CH343'lü kartlar). Tek çekirdek, PSRAM yok; bağlıyken yaklaşık 100 KB heap boş kalıyor. |
+| ESP32-S3 | 🟡 Çalışmalı | Derleniyor (`pio run -e esp32s3`), donanımda çalıştırılmadı. C3'ten fazla RAM'i var. |
+| ESP32 (klasik) | 🟡 Çalışmalı | Derleniyor (`-e esp32`), donanımda çalıştırılmadı. GPIO 6-11 flash'a ayrıldığı için varsayılan pinler C3'ünkilerden farklı. |
+| ESP32-C6 | 🟡 Çalışmalı | Derleniyor (`-e esp32c6`), donanımda çalıştırılmadı. C3 gibi tek çekirdek. |
+| ESP32-S2 | 🟡 Çalışmalı | Derleniyor (`-e esp32s2`), donanımda çalıştırılmadı. RAM payı ölçülmedi. |
+| ESP32-C2 | ⚠️ Muhtemelen RAM yetmez | Denenmedi. C3'ten az RAM'i var; bu yazılım bir TLS oturumu ve 24 KB'lık mesaj tamponu ister. |
+| ESP32-C5 / C61 | ❔ Bilinmiyor | Denenmedi. |
+| ESP32-H2 | ❌ Hayır | Wi-Fi yok (yalnızca Thread / Zigbee / BLE). |
+| ESP32-P4 | ❌ Hayır | Dahili Wi-Fi yok. |
+
+✅ donanımda çalıştı · 🟡 derleniyor, donanımda çalıştırılmadı · ⚠️ büyük olasılıkla RAM sınırlı · ❔ denenmedi · ❌ çalışamaz
+
+Başka bir çip kullanmak için onun ortamıyla yükleyin (`pio run -e esp32s3 -t upload`) ve ekranı, düğmeyi ve buzzer'ı o çipin `settings.h` içindeki varsayılan pinlerine bağlayın (ya da pinleri değiştirin). C3 ortamı, sahip olduğum kartlar gerektirdiği için flash'ı 40 MHz DIO'ya zorlar; diğer ortamlar kendi kartlarının varsayılanlarını korur, yani biri yüklemeden sonra sessiz kalırsa aynı iki ayarı deneyin (bkz. [Sorun giderme](#sorun-giderme)). Çalışan ya da çalışmayan bir çip raporu çok değerlidir.
 
 ## Bağlantı
 
@@ -142,10 +167,45 @@ Hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament (AMS yuvasın
 | SDA | GPIO4 | | + | 3V3 (**5V değil**) |
 | | | | GND | GND |
 
+- Bunlar **ESP32-C3** pinleridir; diğer çiplerin varsayılanları `settings.h` içindedir. İsteğe bağlı buzzer GPIO3 ve GND'ye bağlanır, bkz. [Buzzer](#buzzer-isteğe-bağlı).
 - Modüllerin üzerindeki **pin etiketlerine** bakın, sırasına değil; sıra üreticiye göre değişir.
 - KY-040 `+` pinini 3V3'e bağlayın: modülde bu pine giden pull-up dirençleri var, sinyaller böylece 3,3 V'ta kalır.
 - Pinler [`include/settings.h`](include/settings.h) içinde değiştirilebilir. GPIO 2, 8, 9 (açılış pinleri), 11-17 (flash), 18-19 (USB) ve 20-21'den (UART) kaçının.
 - Ek parça gerekmez: KY-040 ve çoğu OLED modülünde zaten pull-up dirençleri var, yazılım ayrıca düğme pinlerinde dahili pull-up'ları açar.
+
+## Buzzer (isteğe bağlı)
+
+Buzzer, cihazı odanın öbür ucundan da işe yarar yapar: bir baskı **bittiğinde** ve **hata verdiğinde** öter, ayrıca açılışta bir kez cıvıldar, böylece doğru bağlandığını anlarsınız.
+
+### Aktif mi, pasif mi?
+
+| | Aktif buzzer | Pasif buzzer |
+|---|---|---|
+| İçinde | kendi osilatörü | yalnızca bir bobin ya da piezo, minik bir hoparlör gibi |
+| Ses | tek sabit ton, yalnızca açık / kapalı | çipin verdiği her perde: notalar ve melodiler |
+| Hızlı deneme | pinlerine 3,3 V verince **bip** der | pinlerine 3,3 V verince yalnızca **tık** sesi çıkar |
+| Bu projede | sesler **ritimle** ayrılır | gerçek notalar çalar |
+
+Buzzer'ınız yalnızca tek bir nota çalıyorsa **aktif** buzzer'dır. Varsayılan ayar budur (`BUZZER_PASSIVE 0`). Melodi için pasif buzzer alıp `BUZZER_PASSIVE 1` yapın.
+
+### Bağlantı
+
+- **Üç pinli modül (S, +, -):** `S` → GPIO3, `+` → 3V3, `-` → GND. Bu modüllerin çoğu LOW sinyalle çalışır: hiç susmuyorsa ya da hiç ses vermiyorsa `BUZZER_ACTIVE_LOW 1` yapın.
+- **İki pinli çıplak buzzer:** `+` → GPIO3 ve `-` → GND, **yalnızca yaklaşık 20 mA'den az çekiyorsa** (küçük pasif piezo diskler çeker). Çıplak aktif buzzer çoğu zaman daha fazla çeker: transistör kullanın, örneğin BC547 ya da 2N2222 gibi bir NPN: GPIO3 → 1 kΩ direnç → baz, emitör → GND, buzzer `+` → 3V3, buzzer `-` → kolektör.
+- 5 V sinyal bekleyen bir parçayı doğrudan GPIO'ya bağlamayın.
+
+### Sesler
+
+| Olay | Aktif buzzer | Pasif buzzer |
+|---|---|---|
+| Açılış | bir kısa bip | bir kısa bip |
+| Baskı bitti | bip, bip, uzun bip | yükselen notalar (C6, E6, G6) |
+| Baskı hata verdi ya da hata kodu çıktı | dört bip | dört dönüşümlü nota, yüksek ve alçak |
+
+- Yalnızca **canlı** görülen değişiklikler duyurulur: cihaz açıldığında zaten bitmiş ya da hatalı olan yazıcı sessiz kalır; "bitti", yazıcının daha önce basıyor, duraklamış ya da hazırlanıyor olduğu anlamına gelir. Otomatik modda her yazıcı yaklaşık dakikada bir ziyaret edilir, yani ekranda olmayan bir yazıcının uyarısı yaklaşık bir dakikaya kadar geç gelebilir.
+- Sesi kapatmak ya da açmak için düğme butonunu **2,5 saniye** basılı tutun (bir mesaj yeni durumu gösterir; yeniden başlatınca hatırlanmaz).
+- Demo yazılımı (`pio run -e demo -t upload`), sahte yazıcıları bittikçe ve hata verdikçe sesleri çalar; bağlantınızı denemenin kolay yolu budur.
+- `settings.h` ayarları: `PIN_BUZZER` (`-1` = buzzer yok), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
 
 ## Kurulum, adım adım
 
@@ -265,7 +325,10 @@ python tools/fetch_access_codes.py --token --cloud       # --token olmadan: e-po
 | Ayar | Varsayılan | Anlamı |
 |---|---|---|
 | `PIN_OLED_SDA`, `PIN_OLED_SCL` | 4, 5 | Ekranın I2C pinleri |
-| `PIN_ENC_CLK`, `PIN_ENC_DT`, `PIN_ENC_SW` | 6, 7, 10 | Düğme pinleri |
+| `PIN_ENC_CLK`, `PIN_ENC_DT`, `PIN_ENC_SW` | 6, 7, 10 | Düğme pinleri (buradaki varsayılanlar C3 içindir; diğer çiplerin kendi değerleri var) |
+| `PIN_BUZZER` | 3 | Buzzer pini; `-1` = buzzer yok |
+| `BUZZER_PASSIVE` | 0 | 0 = aktif buzzer (yalnızca ritim), 1 = pasif (notalar) |
+| `BUZZER_ACTIVE_LOW` | 0 | Buzzer modülü pin LOW iken ötüyorsa 1 |
 | `ENC_REVERSE` | 0 | Saat yönünde çevirmek geri gidiyorsa 1 yapın |
 | `ENC_EDGES_PER_DETENT` | 4 | Düğmenin bir tıkı bir yazıcı atlıyorsa 2 deneyin |
 | `UI_LANG_TR` | 1 | 1 = Türkçe etiketler, 0 = İngilizce |
@@ -298,6 +361,7 @@ python tools/fetch_access_codes.py --token --cloud       # --token olmadan: e-po
 |---|---|
 | `esp32c3` | Gerçek yazılım |
 | `demo` | Aynı arayüz, sahte yazıcılar, Wi-Fi yok |
+| `esp32s3`, `esp32`, `esp32c6`, `esp32s2` | Diğer çipler, yalnızca derleme denendi, bkz. [Hangi ESP32 çalışır?](#hangi-esp32-çalışır) |
 
 **Doğal USB'li** bir kart için (ayrı USB-UART çipi yok) `build_flags` içindeki iki `-DARDUINO_USB_...` satırını silin. Başka kartlar için `board` değerini değiştirin. Platform [pioarduino](https://github.com/pioarduino/platform-espressif32) (Arduino çekirdeği 3), flash 40 MHz DIO'ya zorlanır (bkz. [Sorun giderme](#sorun-giderme)).
 
@@ -336,7 +400,7 @@ Kullanılan alanlar (hepsi `print` altında): `gcode_state`, `mc_percent`, `mc_r
 - **Yeniden deneme.** Erişilemeyen yazıcı her 60 sn'de (ekrandayken 8 sn'de) denenir. Reddedilen bilgiler en çok dakikada bir denenir; böyle bir yazıcıya bakmak denemeyi öne çekmez.
 - **TLS.** Yazıcılar yerel ağda kendinden imzalı sertifika kullanır, olduğu gibi kabul edilir. Bulut sunucusunun sertifikası, anahtar gönderilmeden önce dahili Mozilla CA paketiyle doğrulanır.
 - **Dosya adları** ekran yazı tipi için ASCII'ye çevrilir: Türkçe harfler sadeleştirilir (ğ → g), desteklenmeyenler `?` olur.
-- **Bellek.** Bağlıyken yaklaşık 100 KB heap boş kalır (görülen en düşük: 93 KB); yazılım 3 MB'lık bölümde yaklaşık 1,2 MB'tır (OTA yok).
+- **Bellek.** Bağlıyken yaklaşık 100 KB heap boş kalır (görülen en düşük: 84 KB); yazılım 3 MB'lık bölümde yaklaşık 1,2 MB'tır (OTA yok).
 - **Ekran uykusu.** 5 dakika boyunca hiçbir yazıcı basmıyor, duraklamış, hazırlanıyor ya da hatalı değilse ekran kapanır; düğmeye dokunmak veya yeni bir etkinlik uyandırır.
 - **Açılış tanılaması.** Günlük, ekranın nerede yanıt verdiğini yazar (`[oled] found at 0x3C ...`); yapılandırılan pinlerde sessizse tüm diğer pin çiftlerini tarayıp nereye bağlı olduğunu söyler.
 
@@ -350,7 +414,8 @@ src/main.cpp              setup + loop, periyodik durum satırı
 src/Config.*              yazıcı listesi ve bilgiler (secrets.h'ı okur)
 src/State.*               paylaşılan durum tablosu (kilitli)
 src/Poller.*              MQTT oturumları, ayrıştırma, yeniden deneme, bulut, demo verisi
-src/Input.*               düğme çözme (kesme) ve buton (tıklama / uzun basış)
+src/Input.*               düğme çözme (kesme) ve buton (tıklama / uzun / çok uzun basış)
+src/Buzzer.*              isteğe bağlı buzzer: aktif ve pasif buzzer için ses kalıpları
 src/Ui.*                  ekran, ekranlar, otomatik geçiş, mesaj, ekran uykusu
 tools/find_printers.py    LAN'daki yazıcıları listeler (SSDP)
 tools/fetch_access_codes.py  erişim kodlarını / bulut girişini Bambu hesabından okur
@@ -397,6 +462,8 @@ Yedek alır (`secrets.h.bak`), yazıcılarınızı tablo olarak yazdırır ve **
 | Ekranda "veri bekleniyor" kalıyor | Yazıcı açılıştan beri hiç veri vermedi. Durum isteği yanıtsız kaldıysa günlükte `connected but no full report received` yazar. |
 | Büyük bir yazıcı hiç güncellenmiyor | Mesajları `MQTT_BUFFER_BYTES` değerini aşıyor olabilir; günlük görülen en büyük mesajı yazar. Değeri artırın. |
 | Bitiş saati yok | NTP eşitlenmedi (internet gerekir) ya da yazıcı baskıda değil. |
+| Buzzer sessiz | `PIN_BUZZER` ve bağlantıyı kontrol edin; açılışta bir kez cıvıldar. Pasif buzzer notaları çalmak için `BUZZER_PASSIVE 1` ister. Susturulmuş olabilir: butonu 2,5 sn basılı tutun. |
+| Buzzer hiç susmuyor ya da olmaması gereken yerde ötüyor | Modül LOW sinyalle çalışıyor: `BUZZER_ACTIVE_LOW 1` yapın. |
 | Adlarda harfler eksik | Yazı tipinde `ş ı ğ İ` yok; `secrets.h` içinde düz harf kullanın. |
 
 ## Sınırlar ve fikirler
@@ -406,7 +473,7 @@ Yedek alır (`secrets.h.bak`), yazıcılarınızı tablo olarak yazdırır ve **
 - Bulut anahtarını cihaz yenileyemez (Bambu'nun yenileme noktası kullanılamaz), bu yüzden ~3 ayda bir yeniden yükleme gerekir. Bir ayar sayfası bunu da ortadan kaldırırdı.
 - Havadan güncelleme yok (büyük bölüm OTA düzeninin yerini alır).
 - HMS uyarıları yalnızca sayılır, çözülmez; geçen süre bir tahmindir.
-- Fikirler: baskı bitince buzzer ya da LED, Home Assistant / MQTT çıkışı, liste görünümlü daha büyük ekran, yazıcı başına eşikler.
+- Fikirler: baskı bitince LED, Home Assistant / MQTT çıkışı, liste görünümlü daha büyük ekran, yazıcı başına eşikler.
 
 ## Katkı
 

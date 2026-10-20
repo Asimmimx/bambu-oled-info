@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "Buzzer.h"
 #include "Input.h"
 #include "Poller.h"
 #include "State.h"
@@ -10,6 +11,7 @@ void setup() {
   Serial.println("\nBambu print farm monitor");
   state::begin();
   input::begin();
+  buzzer::begin();
   ui::begin();
   poller::begin();
 }
@@ -17,6 +19,7 @@ void setup() {
 void loop() {
   ui::handle(input::poll());
   ui::render();
+  buzzer::update();
 
   // Periodic heap report: a steady "min free" over hours means no leak in the TLS/JSON path.
   static uint32_t lastLog = 0;

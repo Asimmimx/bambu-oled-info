@@ -3,6 +3,7 @@
 #include <U8g2lib.h>
 #include <Wire.h>
 #include <time.h>
+#include "Buzzer.h"
 #include "Config.h"
 #include "Poller.h"
 #include "State.h"
@@ -19,6 +20,9 @@
 #define S_BADCODE "Erisim kodu hatali"
 #define S_NOREPLY "Yanit yok"
 #define S_LOADING  "Yazicilar okunuyor"
+#define S_SOUND_ON  "Ses: ACIK"
+#define S_SOUND_OFF "Ses: KAPALI"
+#define S_NO_BUZZER "Buzzer yok"
 #define S_AUTO_ON  "Oto gecis: ACIK"
 #define S_AUTO_OFF "Oto gecis: KAPALI"
 #define S_SPEED    "Hiz"
@@ -38,6 +42,9 @@
 #define S_BADCODE "Wrong access code"
 #define S_NOREPLY "No reply"
 #define S_LOADING  "Reading printers"
+#define S_SOUND_ON  "Sound: ON"
+#define S_SOUND_OFF "Sound: OFF"
+#define S_NO_BUZZER "No buzzer set"
 #define S_AUTO_ON  "Auto cycling: ON"
 #define S_AUTO_OFF "Auto cycling: OFF"
 #define S_SPEED    "Speed"
@@ -499,7 +506,8 @@ void handle(input::Event e) {
   if (e == input::Event::None) return;
   const uint32_t now = millis();
   Serial.printf("[input] %s\n", e == input::Event::Left ? "left" : e == input::Event::Right ? "right"
-                              : e == input::Event::Click ? "click" : "long press");
+                              : e == input::Event::Click ? "click"
+                              : e == input::Event::LongPress ? "long press" : "very long press");
   g_lastInput = now;
   g_lastActive = now;
   if (g_asleep) {  // the first touch only wakes the screen
@@ -527,6 +535,15 @@ void handle(input::Event e) {
       g_carouselAt = now;
       applyFocus();
       showToast(g_autoMode ? S_AUTO_ON : S_AUTO_OFF);
+      break;
+    case input::Event::VeryLongPress:  // sound on / off
+      if (!buzzer::available()) {
+        showToast(S_NO_BUZZER);
+        break;
+      }
+      buzzer::setMuted(!buzzer::muted());
+      showToast(buzzer::muted() ? S_SOUND_OFF : S_SOUND_ON);
+      buzzer::play(buzzer::Sound::Chirp);  // confirms "on"; silent when muted
       break;
     default:
       break;

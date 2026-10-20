@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="13">
-  <title>Wiring: ESP32-C3, SSD1306 128x32 OLED, KY-040 rotary encoder</title>
-  <rect width="760" height="470" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 580" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="13">
+  <title>Wiring: ESP32-C3, SSD1306 128x32 OLED, KY-040 rotary encoder, optional buzzer</title>
+  <rect width="760" height="580" fill="#ffffff"/>
 
   <!-- ESP32-C3 board -->
-  <rect x="40" y="30" width="200" height="400" rx="8" fill="#eef2f7" stroke="#34495e" stroke-width="2"/>
+  <rect x="40" y="30" width="200" height="510" rx="8" fill="#eef2f7" stroke="#34495e" stroke-width="2"/>
   <text x="140" y="56" text-anchor="middle" font-weight="bold" font-size="15" fill="#1c2733">ESP32-C3</text>
   <g fill="#1c2733" text-anchor="end">
     <text x="228" y="84">GND</text>
@@ -13,6 +13,7 @@
     <text x="228" y="294">GPIO6</text>
     <text x="228" y="324">GPIO7</text>
     <text x="228" y="354">GPIO10</text>
+    <text x="228" y="494">GPIO3</text>
   </g>
 
   <!-- OLED: pins listed in the order printed on the module (GND VCC SCK SDA) -->
@@ -39,6 +40,15 @@
     <text x="532" y="414">GND</text>
   </g>
 
+  <!-- Buzzer (optional) -->
+  <rect x="520" y="462" width="200" height="80" rx="8" fill="#f7f4ec" stroke="#34495e" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="650" y="488" text-anchor="middle" font-weight="bold" font-size="14" fill="#1c2733">Buzzer</text>
+  <text x="650" y="506" text-anchor="middle" font-size="11" fill="#57626e">optional, active or passive</text>
+  <g fill="#1c2733">
+    <text x="532" y="494">+ / S</text>
+    <text x="532" y="524">- / GND</text>
+  </g>
+
   <!-- Wires -->
   <g fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="240,80 520,80" stroke="#1c2733"/>
@@ -48,12 +58,15 @@
     <polyline points="240,290 520,290" stroke="#8e44ad"/>
     <polyline points="240,320 520,320" stroke="#e67e22"/>
     <polyline points="240,350 520,350" stroke="#16a085"/>
-    <!-- 3V3 and GND branches down to the encoder -->
+    <polyline points="240,490 520,490" stroke="#b8860b"/>
+    <!-- 3V3 and GND branches down to the encoder (and GND on to the buzzer) -->
     <polyline points="400,110 400,380 520,380" stroke="#d62d20"/>
     <polyline points="440,80 440,410 520,410" stroke="#1c2733"/>
+    <polyline points="440,410 440,520 520,520" stroke="#1c2733"/>
   </g>
   <circle cx="400" cy="110" r="4" fill="#d62d20"/>
   <circle cx="440" cy="80" r="4" fill="#1c2733"/>
+  <circle cx="440" cy="410" r="4" fill="#1c2733"/>
 
   <!-- Wire labels -->
   <g font-size="12" text-anchor="middle">
@@ -62,7 +75,9 @@
     <text x="320" y="286" fill="#8e44ad">CLK</text>
     <text x="320" y="316" fill="#e67e22">DT</text>
     <text x="320" y="346" fill="#16a085">SW</text>
+    <text x="320" y="486" fill="#b8860b">buzzer</text>
   </g>
 
-  <text x="380" y="458" text-anchor="middle" fill="#57626e" font-size="11">Go by the pin labels on your modules, not their order. KY-040 "+" goes to 3V3 (not 5V).</text>
+  <text x="380" y="554" text-anchor="middle" fill="#57626e" font-size="11">Go by the pin labels on your modules. KY-040 "+" goes to 3V3 (not 5V).</text>
+  <text x="380" y="568" text-anchor="middle" fill="#57626e" font-size="11">A bare buzzer drawing more than ~20 mA needs a transistor (see README).</text>
 </svg>

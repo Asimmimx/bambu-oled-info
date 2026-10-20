@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
+#include "Buzzer.h"
 #include "Config.h"
 #include "State.h"
 #include "settings.h"
@@ -81,6 +82,9 @@ void sanitizeName(const char* in, char* out, size_t n) {
 void applyReport(int idx, JsonObjectConst p) {
   state::Guard guard;
   PrinterStatus& s = state::raw(idx);
+  const bool hadData = s.updatedMs != 0;
+  const Phase oldPhase = s.phase;
+  const uint32_t oldError = s.printError;
 
   if (p["gcode_state"].is<const char*>()) {
     const Phase old = s.phase;
@@ -136,6 +140,16 @@ void applyReport(int idx, JsonObjectConst p) {
   if ((s.phase == Phase::Running || s.phase == Phase::Paused) && s.percent >= 1 && s.percent <= 99 &&
       s.remainingMin >= 0) {
     s.elapsedMin = (int32_t)((int64_t)s.remainingMin * s.percent / (100 - s.percent));
+  }
+
+  // Sound an alert for changes seen live, never for the state a printer was already in at power-up
+  if (hadData && !g_warm) {
+    const bool wasBusy = oldPhase == Phase::Running || oldPhase == Phase::Paused || oldPhase == Phase::Prepare;
+    if (s.phase == Phase::Finished && wasBusy) {
+      buzzer::play(buzzer::Sound::Finished);
+    } else if ((s.phase == Phase::Failed && oldPhase != Phase::Failed) || (s.printError != 0 && oldError == 0)) {
+      buzzer::play(buzzer::Sound::Failed);
+    }
   }
 
   s.link = Link::Online;
@@ -526,6 +540,7 @@ void task(void*) {
 void demoTask(void*) {
   const int n = (int)config::printerCount();
   uint32_t tick = 0;
+  Phase prev[MAX_PRINTERS] = {};
   state::setWifiUp(true);
   for (;;) {
     for (int i = 0; i < n; i++) {
@@ -561,6 +576,12 @@ void demoTask(void*) {
           break;
       }
       if (i == n - 1 && (tick / 25) % 2) s.link = Link::Offline;
+      // let the demo exercise the buzzer too
+      if (s.phase != prev[i]) {
+        if (s.phase == Phase::Finished) buzzer::play(buzzer::Sound::Finished);
+        else if (s.phase == Phase::Failed) buzzer::play(buzzer::Sound::Failed);
+        prev[i] = s.phase;
+      }
     }
     tick++;
     vTaskDelay(pdMS_TO_TICKS(500));
