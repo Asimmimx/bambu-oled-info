@@ -406,13 +406,17 @@ Visit openSession(const char* host, const char* user, const char* pass, bool ver
 bool requestFullIfDue(int idx) {
   const PrinterConfig& pc = config::printer(idx);
   const uint32_t now = millis();
-  if (g_pushed[idx] && !pollSchedule::due(now, g_lastPushall[idx], PUSHALL_MIN_INTERVAL_MS)) return false;
+  const PrinterStatus s = state::get(idx);
+  const uint32_t interval = pollSchedule::fullReportInterval(s.phase == Phase::Running, s.remainingMin,
+      s.remainingAtMs, now, PUSHALL_MIN_INTERVAL_MS, FINISH_CONFIRM_MS);
+  if (g_pushed[idx] && !pollSchedule::due(now, g_lastPushall[idx], interval)) return false;
   char requestTopic[64];
   snprintf(requestTopic, sizeof requestTopic, "device/%s/request", pc.serial);
   if (!g_mqtt.publish(requestTopic, kPushall)) return false;
   g_lastPushall[idx] = now;
   g_pushed[idx] = true;
-  Serial.printf("[%s] pushall sent\n", pc.name);
+  Serial.printf("[%s] pushall sent%s\n", pc.name,
+                interval == FINISH_CONFIRM_MS ? " (finish verification)" : "");
   return true;
 }
 

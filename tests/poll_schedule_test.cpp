@@ -19,6 +19,13 @@ int main() {
   assert(interval(true, true, 300000, 60000, 30000, 10000) == 60000);
   assert(interval(false, false, 300000, 60000, 30000, 10000) == 30000);
   assert(interval(false, true, 300000, 60000, 30000, 10000) == 10000);
+  assert(fullReportInterval(true, 0, 0, 1000, 330000, 60000) == 60000);
+  assert(fullReportInterval(true, 1, 0, 59999, 330000, 60000) == 330000);
+  assert(fullReportInterval(true, 1, 0, 60000, 330000, 60000) == 60000);
+  assert(fullReportInterval(false, 0, 0, 60000, 330000, 60000) == 330000);
+  assert(fullReportInterval(true, -1, 0, 60000, 330000, 60000) == 330000);
+  assert(!due(59999, 0, fullReportInterval(true, 0, 0, 59999, 330000, 60000)));
+  assert(due(60000, 0, fullReportInterval(true, 0, 0, 60000, 330000, 60000)));
 
   Next next;
   next.consider(0, true, 60000, 50000, 30000, 0); // selected printer is not due

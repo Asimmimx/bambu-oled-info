@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="620" viewBox="0 0 1120 620" role="img" aria-labelledby="title desc">
+<title id="title">OLED sayfaları</title><desc id="desc">Firmware sayfalarının örnek verilerle çizimi; gerçek fotoğraf değildir.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif} .mono{font-family:Consolas,monospace}</style>
+<rect width="1120" height="620" rx="24" fill="#f3f6fa"/>
+<text x="32" y="44" font-size="28" fill="#172b42" font-weight="700" >Bir tıkla dört görünüm</text>
+<text x="32" y="73" font-size="15" fill="#52647a" font-weight="400" >128 × 32 piksel · Örnek veriler · OLED metinleri İngilizcedir</text>
+<rect x="24" y="100" width="524" height="228" rx="16" fill="white" stroke="#dce4ee"/>
+<text x="46" y="133" font-size="20" fill="#172b42" font-weight="650" >1  İlerleme</text>
+<rect x="46" y="152" width="480" height="128" rx="10" fill="#111b2a"/>
+<svg x="62" y="160" width="448" height="112" viewBox="0 0 128 32">
+<text class="mono" x="0" y="8" font-size="8" fill="#8ce9ff" >Workshop A1</text>
+<text class="mono" x="128" y="8" font-size="8" fill="#8ce9ff" text-anchor="end">RUN</text>
+<rect x="0" y="12" width="100" height="9" fill="none" stroke="#8ce9ff" stroke-width="0.7"/><rect x="1" y="13" width="41.2" height="7" fill="#8ce9ff"/>
+<text class="mono" x="104" y="20" font-size="8" fill="#8ce9ff" >42%</text>
+<text class="mono" x="0" y="31" font-size="6" fill="#8ce9ff" >Left 3h26m Elapsed 2h29m</text>
+</svg>
+<text x="46" y="307" font-size="14" fill="#52647a" font-weight="400" >Yüzde, kalan süre ve tahmini geçen süre</text>
+<rect x="572" y="100" width="524" height="228" rx="16" fill="white" stroke="#dce4ee"/>
+<text x="594" y="133" font-size="20" fill="#172b42" font-weight="650" >2  Genel bakış</text>
+<rect x="594" y="152" width="480" height="128" rx="10" fill="#111b2a"/>
+<svg x="610" y="160" width="448" height="112" viewBox="0 0 128 32">
+<rect x="0" y="0" width="41" height="7" fill="#8ce9ff"/>
+<text class="mono" x="1" y="5.5" font-size="5.4" fill="#111b2a" >A01</text>
+<text class="mono" x="40" y="5.5" font-size="5.4" fill="#111b2a" text-anchor="end">42%</text>
+<rect x="0" y="9" width="41" height="5" fill="none" stroke="#8ce9ff" stroke-width="0.7"/><rect x="1" y="10" width="16.4" height="3" fill="#8ce9ff"/>
+<text class="mono" x="44" y="5.5" font-size="5.4" fill="#8ce9ff" >A02</text>
+<text class="mono" x="83" y="5.5" font-size="5.4" fill="#8ce9ff" text-anchor="end">63%</text>
+<rect x="43" y="9" width="41" height="5" fill="none" stroke="#8ce9ff" stroke-width="0.7"/><rect x="44" y="10" width="24.6" height="3" fill="#8ce9ff"/>
+<text class="mono" x="87" y="5.5" font-size="5.4" fill="#8ce9ff" >A03</text>
+<text class="mono" x="126" y="5.5" font-size="5.4" fill="#8ce9ff" text-anchor="end">53%</text>
+<rect x="86" y="9" width="41" height="5" fill="none" stroke="#8ce9ff" stroke-width="0.7"/><rect x="87" y="10" width="20.7" height="3" fill="#8ce9ff"/>
+<text class="mono" x="1" y="21.5" font-size="5.4" fill="#8ce9ff" >B01</text>
+<text class="mono" x="40" y="21.5" font-size="5.4" fill="#8ce9ff" text-anchor="end">81%</text>
+<rect x="0" y="25" width="41" height="5" fill="none" stroke="#8ce9ff" stroke-width="0.7"/><rect x="1" y="26" width="31.6" height="3" fill="#8ce9ff"/>
+<text class="mono" x="44" y="21.5" font-size="5.4" fill="#8ce9ff" >B02</text>
+<text class="mono" x="83" y="21.5" font-size="5.4" fill="#8ce9ff" text-anchor="end">done</text>
+<rect x="43" y="25" width="41" height="5" fill="none" stroke="#8ce9ff" stroke-width="0.7"/><rect x="44" y="26" width="39.0" height="3" fill="#8ce9ff"/>
+<text class="mono" x="87" y="21.5" font-size="5.4" fill="#8ce9ff" >B03</text>
+<text class="mono" x="126" y="21.5" font-size="5.4" fill="#8ce9ff" text-anchor="end">idle</text>
+<path d="M86 27h41" stroke="#8ce9ff" stroke-dasharray="1 1"/>
+</svg>
+<text x="594" y="307" font-size="14" fill="#52647a" font-weight="400" >İlk altı yazıcı, tek ekranda</text>
+<rect x="24" y="352" width="524" height="228" rx="16" fill="white" stroke="#dce4ee"/>
+<text x="46" y="385" font-size="20" fill="#172b42" font-weight="650" >3  Ayrıntılar</text>
+<rect x="46" y="404" width="480" height="128" rx="10" fill="#111b2a"/>
+<svg x="62" y="412" width="448" height="112" viewBox="0 0 128 32">
+<text class="mono" x="0" y="6" font-size="6.3" fill="#8ce9ff" >Workshop A1</text>
+<text class="mono" x="128" y="6" font-size="6.3" fill="#8ce9ff" text-anchor="end">L118/290</text>
+<text class="mono" x="0" y="14" font-size="6.3" fill="#8ce9ff" >N220/220 B65/65 C31</text>
+<text class="mono" x="0" y="22" font-size="6.3" fill="#8ce9ff" >ETA 17:42</text>
+<text class="mono" x="128" y="22" font-size="6.3" fill="#8ce9ff" text-anchor="end">-46dBm</text>
+<text class="mono" x="0" y="30" font-size="6.3" fill="#8ce9ff" >Organizer (plate 2)</text>
+</svg>
+<text x="46" y="559" font-size="14" fill="#52647a" font-weight="400" >Katman, sıcaklık, bitiş saati ve iş adı</text>
+<rect x="572" y="352" width="524" height="228" rx="16" fill="white" stroke="#dce4ee"/>
+<text x="594" y="385" font-size="20" fill="#172b42" font-weight="650" >4  Bilgi</text>
+<rect x="594" y="404" width="480" height="128" rx="10" fill="#111b2a"/>
+<svg x="610" y="412" width="448" height="112" viewBox="0 0 128 32">
+<text class="mono" x="0" y="6" font-size="6.3" fill="#8ce9ff" >Workshop A1</text>
+<text class="mono" x="128" y="6" font-size="6.3" fill="#8ce9ff" text-anchor="end">RUN</text>
+<text class="mono" x="0" y="14" font-size="6.3" fill="#8ce9ff" >Speed Standard 100%</text>
+<text class="mono" x="0" y="22" font-size="6.3" fill="#8ce9ff" >Fan 66% 0.4mm PLA</text>
+<text class="mono" x="0" y="30" font-size="6.3" fill="#8ce9ff" >Web 192.168.1.50</text>
+</svg>
+<text x="594" y="559" font-size="14" fill="#52647a" font-weight="400" >Hız, fan, filament ve cihazın web adresi</text>
+<text x="32" y="605" font-size="15" fill="#52647a" font-weight="400" >Tıkla: sonraki sayfa  •  Çevir: yazıcı seç  •  2,5 sn bas: sesi aç / kapat</text>
+</svg>

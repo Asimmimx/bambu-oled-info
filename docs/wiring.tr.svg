@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="880" viewBox="0 0 1120 880" role="img" aria-labelledby="title desc">
+<title id="title">ESP32-C3 bağlantı şeması</title><desc id="desc">OLED, KY-040 ve isteğe bağlı üç pinli buzzer modülü. Tüm modüller 3V3 ve ortak GND kullanır.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif} .mono{font-family:Consolas,monospace}</style>
+<rect width="1120" height="880" rx="24" fill="#f3f6fa"/>
+<text x="32" y="45" font-size="28" fill="#172b42" font-weight="700" >Bağla, sonra USB’ye tak</text>
+<text x="32" y="76" font-size="16" fill="#52647a" font-weight="400" >İşlevsel şema: pin adlarını izleyin; kart üzerindeki fiziksel sıra gösterilmez.</text>
+<rect x="40" y="110" width="290" height="652" rx="18" fill="#172b42"/>
+<text x="68" y="150" font-size="26" fill="white" font-weight="700" >ESP32-C3</text>
+<text x="68" y="178" font-size="15" fill="#bbccdd" font-weight="400" >USB → 5 V / USB</text>
+<rect x="710" y="205" width="370" height="150" rx="16" fill="white" stroke="#dce4ee" stroke-width="2"/>
+<text x="840" y="243" font-size="22" fill="#172b42" font-weight="700" >OLED</text>
+<text x="840" y="267" font-size="12" fill="#52647a" font-weight="400" >SSD1306 · I2C · 128 × 32</text>
+<text x="310" y="235" font-size="17" fill="white" font-weight="400" text-anchor="end">GND</text>
+<path d="M330 230H710" stroke="#52647a" stroke-width="3"/><circle cx="330" cy="230" r="4" fill="#52647a"/><circle cx="710" cy="230" r="4" fill="#52647a"/>
+<text x="727" y="235" font-size="16" fill="#52647a" font-weight="650" >GND</text>
+<text x="310" y="268" font-size="17" fill="white" font-weight="400" text-anchor="end">3V3</text>
+<path d="M330 263H710" stroke="#c84049" stroke-width="3"/><circle cx="330" cy="263" r="4" fill="#c84049"/><circle cx="710" cy="263" r="4" fill="#c84049"/>
+<text x="727" y="268" font-size="16" fill="#c84049" font-weight="650" >VCC</text>
+<text x="310" y="301" font-size="17" fill="white" font-weight="400" text-anchor="end">GPIO5</text>
+<path d="M330 296H710" stroke="#087f71" stroke-width="3"/><circle cx="330" cy="296" r="4" fill="#087f71"/><circle cx="710" cy="296" r="4" fill="#087f71"/>
+<text x="727" y="301" font-size="16" fill="#087f71" font-weight="650" >SCK / SCL</text>
+<text x="310" y="334" font-size="17" fill="white" font-weight="400" text-anchor="end">GPIO4</text>
+<path d="M330 329H710" stroke="#2468c6" stroke-width="3"/><circle cx="330" cy="329" r="4" fill="#2468c6"/><circle cx="710" cy="329" r="4" fill="#2468c6"/>
+<text x="727" y="334" font-size="16" fill="#2468c6" font-weight="650" >SDA</text>
+<rect x="710" y="375" width="370" height="211" rx="16" fill="white" stroke="#dce4ee" stroke-width="2"/>
+<text x="840" y="413" font-size="22" fill="#172b42" font-weight="700" >KY-040</text>
+<text x="840" y="437" font-size="12" fill="#52647a" font-weight="400" >Enkoder + buton</text>
+<text x="310" y="405" font-size="17" fill="white" font-weight="400" text-anchor="end">GPIO6</text>
+<path d="M330 400H710" stroke="#7950b2" stroke-width="3"/><circle cx="330" cy="400" r="4" fill="#7950b2"/><circle cx="710" cy="400" r="4" fill="#7950b2"/>
+<text x="727" y="405" font-size="16" fill="#7950b2" font-weight="650" >CLK</text>
+<text x="310" y="438" font-size="17" fill="white" font-weight="400" text-anchor="end">GPIO7</text>
+<path d="M330 433H710" stroke="#b86a14" stroke-width="3"/><circle cx="330" cy="433" r="4" fill="#b86a14"/><circle cx="710" cy="433" r="4" fill="#b86a14"/>
+<text x="727" y="438" font-size="16" fill="#b86a14" font-weight="650" >DT</text>
+<text x="310" y="471" font-size="17" fill="white" font-weight="400" text-anchor="end">GPIO10</text>
+<path d="M330 466H710" stroke="#087f71" stroke-width="3"/><circle cx="330" cy="466" r="4" fill="#087f71"/><circle cx="710" cy="466" r="4" fill="#087f71"/>
+<text x="727" y="471" font-size="16" fill="#087f71" font-weight="650" >SW</text>
+<text x="310" y="504" font-size="17" fill="white" font-weight="400" text-anchor="end">3V3</text>
+<path d="M330 499H710" stroke="#c84049" stroke-width="3"/><circle cx="330" cy="499" r="4" fill="#c84049"/><circle cx="710" cy="499" r="4" fill="#c84049"/>
+<text x="727" y="504" font-size="16" fill="#c84049" font-weight="650" >+</text>
+<text x="310" y="537" font-size="17" fill="white" font-weight="400" text-anchor="end">GND</text>
+<path d="M330 532H710" stroke="#52647a" stroke-width="3"/><circle cx="330" cy="532" r="4" fill="#52647a"/><circle cx="710" cy="532" r="4" fill="#52647a"/>
+<text x="727" y="537" font-size="16" fill="#52647a" font-weight="650" >GND</text>
+<rect x="710" y="610" width="370" height="145" rx="16" fill="white" stroke="#dce4ee" stroke-width="2"/>
+<text x="840" y="648" font-size="22" fill="#172b42" font-weight="700" >Buzzer</text>
+<text x="840" y="672" font-size="12" fill="#52647a" font-weight="400" >3 pinli modül · isteğe bağlı</text>
+<text x="310" y="640" font-size="17" fill="white" font-weight="400" text-anchor="end">GPIO3</text>
+<path d="M330 635H710" stroke="#b86a14" stroke-width="3"/><circle cx="330" cy="635" r="4" fill="#b86a14"/><circle cx="710" cy="635" r="4" fill="#b86a14"/>
+<text x="727" y="640" font-size="16" fill="#b86a14" font-weight="650" >S / SIG</text>
+<text x="310" y="673" font-size="17" fill="white" font-weight="400" text-anchor="end">3V3</text>
+<path d="M330 668H710" stroke="#c84049" stroke-width="3"/><circle cx="330" cy="668" r="4" fill="#c84049"/><circle cx="710" cy="668" r="4" fill="#c84049"/>
+<text x="727" y="673" font-size="16" fill="#c84049" font-weight="650" >+ / VCC</text>
+<text x="310" y="706" font-size="17" fill="white" font-weight="400" text-anchor="end">GND</text>
+<path d="M330 701H710" stroke="#52647a" stroke-width="3"/><circle cx="330" cy="701" r="4" fill="#52647a"/><circle cx="710" cy="701" r="4" fill="#52647a"/>
+<text x="727" y="706" font-size="16" fill="#52647a" font-weight="650" >− / GND</text>
+<text x="68" y="735" font-size="18" fill="#ffd28c" font-weight="700" >GPIO ≠ 5 V</text>
+<text x="40" y="800" font-size="17" fill="#172b42" font-weight="600" >3V3: modül beslemesi  •  GND: tüm modüllerde ortak  •  GPIO: sinyal</text>
+<text x="40" y="832" font-size="15" fill="#52647a" font-weight="400" >KY-040 + pini 3V3’e bağlanır. Çıplak iki pinli buzzer için README notuna bakın.</text>
+</svg>

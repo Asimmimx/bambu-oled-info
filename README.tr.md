@@ -1,508 +1,257 @@
 # Bambu OLED Info
 
-[![Lisans: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Platform: ESP32-C3](https://img.shields.io/badge/platform-ESP32--C3-red) ![Build: PlatformIO](https://img.shields.io/badge/build-PlatformIO-orange)
+**Bambu yazıcılarınızın durumu, masanızdaki küçük bir ekranda.**
 
-**Bambu Lab yazıcılarınızın** ne yaptığını tek bakışta gösteren küçük bir masa üstü cihaz: ilerleme çubuğu, kalan süre, geçen süre, bitiş saati, sıcaklıklar, katman, dosya adı, hız modu, filament ve yazıcının o anda ne yaptığı. Bir **ESP32-C3**, bir **0.91" OLED ekran** ve bir **döner düğmeden** oluşur.
+ESP32, 128×32 OLED ve döner düğmeyle baskı yüzdesini, kalan süreyi, sıcaklıkları ve iş ayrıntılarını izleyin. İsterseniz bitiş ve hata uyarıları için buzzer ekleyin. Ayarları yeniden yazılım yüklemeden dahili web panelinden değiştirin.
 
-- Wi-Fi'nizdeki yazıcılar **doğrudan yerel ağınızdan** okunur. Sunucu, telefon uygulaması ya da bulut hesabı gerekmez.
-- Başka bir yerdeki yazıcılar (ikinci ev, atölye) aynı cihazla **Bambu hesabınız üzerinden** okunabilir.
-- Yalnızca durumu **okur**. Baskıyı başlatmaz, duraklatmaz, durdurmaz.
+[English](README.md) · [Hızlı kurulum](#hızlı-kurulum) · [Bağlantılar](#bağlantılar) · [Ayrıntılı başvuru](docs/reference.tr.md) · [MIT lisansı](LICENSE)
 
-*[English version / İngilizce sürüm](README.md)*
+![Örnek yazıcı verileriyle çizilmiş dört OLED sayfası](docs/screens.tr.svg)
 
-![Bağlantı şeması](docs/wiring.svg)
+## Neler yapar?
 
----
-
-## İçindekiler
-
-1. [Durum](#durum)
-2. [Özellikler](#özellikler)
-3. [Ekranlar ve düğme](#ekranlar-ve-düğme)
-4. [Gerekenler](#gerekenler)
-5. [Hangi ESP32 çalışır?](#hangi-esp32-çalışır)
-6. [Bağlantı](#bağlantı)
-7. [Buzzer (isteğe bağlı)](#buzzer-isteğe-bağlı)
-8. [Kurulum, adım adım](#kurulum-adım-adım)
-9. [Wi-Fi'nizde olmayan yazıcılar](#wi-finizde-olmayan-yazıcılar)
-10. [Ayar başvurusu](#ayar-başvurusu)
-11. [Nasıl çalışır](#nasıl-çalışır)
-12. [Proje yapısı](#proje-yapısı)
-13. [Yardımcı araçlar](#yardımcı-araçlar)
-14. [Güvenlik ve gizlilik](#güvenlik-ve-gizlilik)
-15. [Sorun giderme](#sorun-giderme)
-16. [Sınırlar ve fikirler](#sınırlar-ve-fikirler)
-17. [Katkı](#katkı)
-18. [Teşekkür ve lisans](#teşekkür-ve-lisans)
-
----
-
-## Durum
-
-| | |
+| Özellik | Kullanımı |
 |---|---|
-| **Donanımda doğrulandı** | CH343 USB-UART'lı ESP32-C3 kart (iki kart), SSD1306 128x32 OLED, KY-040 düğme. Yerel ağda, normal bulut modunda, **LAN Only Mode olmadan** 3 adet **A1 mini** (firmware 01.08.01.00). Başka evdeki 3 yazıcı (sahibine göre bir A1, bir X2D ve bir A2L) Bambu Cloud üzerinden. |
-| **Doğrulanmadı** | Buzzer (yazıldı ve derlendi, donanımda henüz çalıştırılmadı), diğer ESP32 çipleri (derleniyorlar, bkz. [Hangi ESP32 çalışır?](#hangi-esp32-çalışır)), P1 / X1 / H2 serisi ve diğer tüm yazıcı modelleri. Hata durumları (gerçek bir baskı hatası) yalnızca dahili demo ile denendi, gerçek bir hatalı yazıcıyla değil. |
+| En çok **8 yazıcı** | Tek tek gezinin; genel bakışta ilk **6** yazıcıyı birlikte görün |
+| **LAN + Bulut** | Yakındaki yazıcıları doğrudan, uzaktakileri Bambu Cloud üzerinden okuyun |
+| **Dört OLED sayfası** | İlerleme, Genel bakış, Ayrıntılar ve Bilgi |
+| **Bitiş / hata uyarıları** | İsteğe bağlı buzzer, yanıp sönen durum ve ekranın uyanması |
+| **Türkçe / İngilizce web paneli** | Yazıcı, ses, ekran, düğme ve ağ ayarları |
+| **Salt okunur yazıcı erişimi** | Yazılım baskı başlatamaz, duraklatamaz veya durduramaz |
 
-Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama deneyemedim. Raporlarınız çok değerli, bkz. [Katkı](#katkı).
+## Ekranlarda ne görünür?
 
-## Özellikler
+Yukarıdaki çizim firmware’deki sayfa düzenlerini temel alır. Veriler örnektir; görsel **fotoğraf veya birebir piksel çıktısı değildir**. Her iki dilde de OLED metinleri İngilizcedir.
 
-- **Altı yazıcı tek 128x32 ekranda**: tek tek (her biri 10 sn) ya da hepsi birden (genel bakış).
-- **Ekrandan bağımsız izleme**: bulutta 5 dk, son 10 tahmini dakikada 1 dk; LAN’da 30 sn / 10 sn. Açık MQTT oturumundaki değişiklikler hemen işlenir.
-- **Kısmi** durum gönderen yazıcılarla (A1 ailesi) ve tam durum gönderenlerle çalışır.
-- **Bitiş saati** ("17:42'de biter"): yazıcının kalan süresi ve NTP ile hesaplanır.
-- Başka ağdaki yazıcılar için doğrulanmış TLS bağlantılı **bulut modu**.
-- İsteğe bağlı **buzzer**, biten ve hata veren baskıları duyurur (aktif ya da pasif buzzer, hazır melodiler + özel melodi tasarımcısı, canlı ses testi; susturmak için düğme butonunu 2,5 sn basılı tutun ya da web panelini kullanın).
-- Hata başlığı **yanıp söner**, biten baskının durum etiketi de; boştaki bir yazıcı grubu ekranı **kapatır** (OLED yanması için) ve bir şey olunca uyanır.
-- Ayarlanabilir pinler, süreler ve saat dilimi.
-- **Dahili web kontrol paneli** (`http://<cihaz-ip>` veya Wi-Fi yoksa `BambuMonitor-Setup` kurulum ağı üzerinden `http://192.168.4.1`):
-  - **Canlı durum & uzaktan OLED kontrolü**: tüm yazıcıları tarayıcıda canlı izleyin, bir yazıcı kartına tıklayarak OLED ekranı o yazıcıya odaklayın, ekran sayfalarını değiştirin, otomatik geçişi/uyku modunu yönetin veya OLED ekrana anlık mesaj (toast) gönderin.
-  - **Ses & melodi stüdyosu**: buzzer ses seviyesini (`%1-%100`) ayarlayın, sesleri anında test edin, **Aktif Buzzer - Ses Seviyesi Melodili** veya **Chiptune Ton Modülasyonlu** modlar sayesinde aktif buzzer ile bile dinamik melodiler çalın, 7 bitiş melodisi ve 5 hata melodisi arasından seçim yapın, kendi özel melodinizi (`frekans:süre@ses%` veya `@ses%:süre`) tasarlayın.
-  - **Ekran, düğme & zamanlayıcılar**: OLED parlaklığını (contrast), 180° ekran döndürmeyi, ters renk modunu, enkoder yönünü/hassasiyetini, geçiş sürelerini ve saat dilimini canlı ayarlayın.
-  - **Wi-Fi, yazıcılar & Bambu Cloud**: 8 yazıcıya kadar LAN/Cloud listesini ve Bambu Cloud anahtarını kalıcı hafızada (NVS) yönetin.
-  - Panel varsayılan olarak **İngilizce** açılır; üst kısımdaki dil menüsünden **Türkçe**'ye geçilebilir (tarayıcı seçimi hatırlar).
-- Hiç yazıcı olmadan tüm ekranları görmek için sahte yazıcılı **demo yazılımı**.
-- Yazıcıları bulan ve erişim kodlarını okuyan iki küçük Python aracı.
+| Tıklama sırası | Sayfa | Gösterilenler |
+|---|---|---|
+| 1 | **Progress — İlerleme** | Yüzde, ilerleme çubuğu, kalan süre ve tahmini geçen süre |
+| 2 | **Overview — Genel bakış** | Altı yazıcı hücresi; seçili yazıcı vurgulanır |
+| 3 | **Details — Ayrıntılar** | Katman, nozul / tabla / hazne sıcaklığı, bitiş saati, Wi-Fi ve iş adı |
+| 4 | **Info — Bilgi** | Hız, soğutma fanı, nozul çapı, filament, hata / aşama / web IP’si |
 
-## Ekranlar ve düğme
+`N220/220`, nozulun mevcut / hedef sıcaklığıdır. `B65/65`, tablanın mevcut / hedef sıcaklığıdır. `ETA`, tahmini bitiş saatidir ve NTP ile saat eşitlemesi gerektirir. Geçen süre tahminidir; uzun iş adları kaydırılır.
 
-Tek **tıklama** dört ekranı sırayla gezdirir: **İlerleme → Genel bakış → Detay → Bilgi → İlerleme ...**
-
-| Kontrol | Ne yapar |
-|---|---|
-| Hiçbir şey | **Otomatik mod**: her yazıcı 10 sn gösterilir (`CAROUSEL_MS`), sonra sıradaki |
-| Düğmeyi çevirmek | Yazıcı seçer; otomatik mod durur, dokunmadan 45 sn sonra devam eder (`MANUAL_TIMEOUT_MS`) |
-| Tıklama | Sonraki ekran (yukarıdaki sıra) |
-| Uzun basış (0,8 - 2,5 sn, bırakınca işler) | Otomatik mod **açık / kapalı**; mesaj 3 sn ekranda kalır |
-| Çok uzun basış (2,5 sn) | Ses **açık / kapalı** (buzzer gerekir) |
-| Ekran kapalıyken dokunmak | Ekranı uyandırır (dokunuş başka bir şey yapmaz) |
-
-Ekrandaki tüm metinler İngilizcedir. Aşağıdaki çizimler yerleşim taslağıdır, fotoğraf değildir. Gerçek ekran 128x32 pikseldir, yaklaşık 21 karakter genişliğinde.
-
-**İlerleme**: ana ekran.
-
-```
-Garage A1                RUN
-[=========-----------]   42%
-Left 3h26m Elapsed 2h29m
-```
-
-Üstte ad ve durum etiketi, yüzdeli ilerleme çubuğu, altında kalan ve geçen süre. Yazıcı baskıya hazırlanırken son satırda ne yaptığı görünür (*Heating bed*, *Bed leveling*, *Cleaning nozzle*...). Biten baskıda ne kadar sürdüğü, boştaki yazıcıda sıcaklıkları görünür.
-
-**Genel bakış**: tüm yazıcılar (ilk altısı) 3x2'lik bir tabloda.
-
-```
-MINI1 42%  MINI2 63%  MINI3 53%
-[====---]  [=====--]  [====---]
-A1    81%  X2D   done A2L   38%
-[======-]  [=======]  [===----]
-```
-
-Her hücrede kısa ad (`shortName`, en çok 5 karakter), yüzde ya da durum sözcüğü (`idle`, `done`, `ERR`, `off`, `AUTH`) ve küçük bir çubuk bulunur. Seçili yazıcının hücresi ters renkli, hata veren hücre yanıp söner. Otomatik modda vurgu, cihazın konuştuğu yazıcıyı izler; düğmeyi çevirerek seçersiniz, tıklayınca o yazıcının sonraki ekranına geçilir.
-
-**Detay**
-
-```
-Garage A1           L118/290
-N220/220 B65/65 C31
-ETA 17:42             -46dBm
-altbaski.stl + altbaski.stl +
-```
-
-Katman, nozul / tabla / hazne sıcaklığı (hedef eğik çizgiden sonra; hazne yalnızca yazıcı bildiriyorsa), baskının biteceği saat (`+1` yarın demektir), Wi-Fi sinyali ve uzunsa kayan dosya adı.
-
-**Bilgi**
-
-```
-Garage A1                RUN
-Speed Standard 100%
-Fan 66% 0.4mm PLA
-Web 192.168.1.167
-```
-
-Hız modu ve yüzdesi, ana fan, nozul çapı, kullanılan filament (AMS yuvasından ya da harici makaradan) ve son satırda: hata kodu, yazıcının o anki aşaması, etkin HMS uyarılarının sayısı ya da cihazın web paneli IP adresi (`Web 192.168.x.x`).
-
-**İş bitince.** Bir yazıcı bir işi bitirdiğinde `DONE` etiketi İlerleme ekranında sağ üst köşede, genel bakışta ise hücresi 5 dakika boyunca (`DONE_ALERT_MS`) yanıp söner. Ardından yazıcı sabit `IDLE` gösterir; böylece bilerek boşta bırakılmış bir yazıcı gözünüzü yormaz. Cihaz açıldığında zaten bitmiş olan yazıcı hemen `IDLE` gösterir: ne zaman bittiğini bilmenin yolu yok. Hata ise başlığın tamamını yanıp söndürür ve sürdürür.
-
-**Son bilinen veri.** Bir yazıcı yanıt vermeyi bırakırsa (`OFF`) ya da bilgileri reddedilirse (`AUTH`) son bilinen değerler ekranda kalır: etiket neyin yanlış olduğunu gösterir, ilerleme çubukları noktalı olur. Tam ekran mesajı yalnızca hiç veri vermemiş bir yazıcı için çıkar.
-
-**Açılış.** İlk gördüğünüz *Reading printers 3/6* ekranıdır: cihaz karusel başlamadan önce her yazıcıyı bir kez okur, böylece hiçbir ekranda "veri bekleniyor" yazması gerekmez.
-
-**Durum etiketleri**: `RUN` basıyor, `PAUSE`, `PREP` hazırlanıyor, `DONE`, `IDLE`, `ERR` hata ya da hata kodu var, `OFF` erişilemiyor, `AUTH` erişim kodu ya da bulut anahtarı reddedildi, `...` henüz veri yok.
+Açılışta ilk tarama sırasında **Reading printers** görünür. İzleme sırasında yeni görülen bir bitişte **DONE** 5 dakika yanıp söner, ardından OLED’de **IDLE** gösterilir. Cihaz açıldığında zaten bitmiş işler uyarı üretmez.
 
 ## Gerekenler
 
-| Parça | Notlar |
+| Parça | Gereksinim |
 |---|---|
-| **ESP32-C3** geliştirme kartı | CH343 USB-UART köprülü kartta denendi. Doğal USB'li kartlar (örn. SuperMini) küçük bir değişiklikle çalışır, bkz. [Ayar başvurusu](#ayar-başvurusu). |
-| **0.91" OLED, 128x32, SSD1306, I2C** | Dört pin: GND, VCC, SCK (= SCL), SDA. Adres `0x3C` (`0x3D` de bulunur). |
-| **KY-040 döner düğme** | İsteğe bağlı, ama yazıcı seçmenin yolu bu. |
-| Buzzer | İsteğe bağlı: aktif ya da pasif, bkz. [Buzzer](#buzzer-isteğe-bağlı). |
-| Jumper kablo, USB kablosu | |
-| [PlatformIO](https://platformio.org/) | CLI ya da VS Code eklentisi. |
-| Python 3 | Yalnızca yardımcı araçlar için; standart kütüphaneden başka bir şey gerekmez. |
+| **ESP32-C3 kart** | Denenen kurulumda CH343 USB-UART’lı kart kullanılıyor |
+| **0,91 inç OLED** | SSD1306, **128×32**, I2C; `0x3C` / `0x3D` adresleri desteklenir |
+| **KY-040 döner enkoder** | İsteğe bağlı; yoksa yazıcı ve sayfa seçimi web panelinden yapılabilir |
+| **Buzzer modülü** | İsteğe bağlı; 3,3 V sinyalle uyumlu, aktif veya pasif |
+| USB kablosu + jumper kablolar | Yazılım yüklemek için veri taşıyan USB kablosu gerekir |
+| PlatformIO | Komut satırı veya VS Code eklentisi |
 
-## Hangi ESP32 çalışır?
+## Bağlantılar
 
-Kod düz Arduino'dur (ESP-IDF 5 üzerinde Arduino çekirdeği 3) ve tek bir çipe özgü hiçbir şey kullanmaz, ama yalnızca bir ESP32-C3'te **çalıştırabildim**. Aşağıdaki diğer çipler bu tablo için **derlendi**; varsayılan pinleri [`include/settings.h`](include/settings.h) içindedir.
+**Bağlantı yaparken USB kablosunu çıkarın.** Şema varsayılan **ESP32-C3** pinleri içindir. Modüllerde pin sırası değişebilir; basılı pin adlarını izleyin.
 
-| Çip | Durum | Notlar |
+![OLED, KY-040 ve isteğe bağlı üç pinli buzzer modülünün ESP32-C3 bağlantıları](docs/wiring.tr.svg)
+
+| Modül | Modül pini | ESP32-C3 pini |
 |---|---|---|
-| ESP32-C3 | ✅ Denendi | Donanımda çalışıyor (CH343'lü kartlar). Tek çekirdek, PSRAM yok; bağlıyken yaklaşık 100 KB heap boş kalıyor. |
-| ESP32-S3 | 🟡 Çalışmalı | Derleniyor (`pio run -e esp32s3`), donanımda çalıştırılmadı. C3'ten fazla RAM'i var. |
-| ESP32 (klasik) | 🟡 Çalışmalı | Derleniyor (`-e esp32`), donanımda çalıştırılmadı. GPIO 6-11 flash'a ayrıldığı için varsayılan pinler C3'ünkilerden farklı. |
-| ESP32-C6 | 🟡 Çalışmalı | Derleniyor (`-e esp32c6`), donanımda çalıştırılmadı. C3 gibi tek çekirdek. |
-| ESP32-S2 | 🟡 Çalışmalı | Derleniyor (`-e esp32s2`), donanımda çalıştırılmadı. RAM payı ölçülmedi. |
-| ESP32-C2 | ⚠️ Muhtemelen RAM yetmez | Denenmedi. C3'ten az RAM'i var; bu yazılım bir TLS oturumu ve 24 KB'lık mesaj tamponu ister. |
-| ESP32-C5 / C61 | ❔ Bilinmiyor | Denenmedi. |
-| ESP32-H2 | ❌ Hayır | Wi-Fi yok (yalnızca Thread / Zigbee / BLE). |
-| ESP32-P4 | ❌ Hayır | Dahili Wi-Fi yok. |
+| OLED | GND / VCC | GND / **3V3** |
+| OLED | SDA / SCK (SCL) | **GPIO4 / GPIO5** |
+| KY-040 | GND / + | GND / **3V3** |
+| KY-040 | CLK / DT / SW | **GPIO6 / GPIO7 / GPIO10** |
+| Buzzer modülü | GND / VCC / S | GND / **3V3 / GPIO3** |
 
-✅ donanımda çalıştı · 🟡 derleniyor, donanımda çalıştırılmadı · ⚠️ büyük olasılıkla RAM sınırlı · ❔ denenmedi · ❌ çalışamaz
+Tüm GND bağlantıları ortaktır. KY-040 `+` pinini **3V3**’e bağlayın; böylece modülün pull-up dirençleri ESP32 sinyal pinlerine 5 V taşımaz. Pinler [`include/settings.h`](include/settings.h) dosyasından değişir; diğer çiplerin varsayılanları farklıdır.
 
-Başka bir çip kullanmak için onun ortamıyla yükleyin (`pio run -e esp32s3 -t upload`) ve ekranı, düğmeyi ve buzzer'ı o çipin `settings.h` içindeki varsayılan pinlerine bağlayın (ya da pinleri değiştirin). C3 ortamı, sahip olduğum kartlar gerektirdiği için flash'ı 40 MHz DIO'ya zorlar; diğer ortamlar kendi kartlarının varsayılanlarını korur, yani biri yüklemeden sonra sessiz kalırsa aynı iki ayarı deneyin (bkz. [Sorun giderme](#sorun-giderme)). Çalışan ya da çalışmayan bir çip raporu çok değerlidir.
+<details>
+<summary><strong>Üç pinli modül yerine çıplak iki pinli buzzer mı kullanıyorsunuz?</strong></summary>
 
-## Bağlantı
+Şema, beslemesi ve sinyal girişi ayrı olan **üç pinli modül** içindir. Çıplak buzzer’ın `+` pini, modülün `S` piniyle aynı işlevi görmez. GPIO’nun sağlayabileceğinden fazla akım isteyen çıplak buzzer için sürücü gerekir: GPIO3 → 1 kΩ direnç → NPN baz; emiter → GND; kolektör → buzzer `−`; buzzer `+` → uygun besleme. Toprağı ortak bağlayın; bobinli buzzer’da uygun geri tepme koruması kullanın. Sürücü/modül 3,3 V mantıkla uyumlu olmalıdır.
 
-| OLED | ESP32-C3 | | KY-040 | ESP32-C3 |
-|---|---|---|---|---|
-| GND | GND | | CLK | GPIO6 |
-| VCC | 3V3 | | DT | GPIO7 |
-| SCK (SCL) | GPIO5 | | SW | GPIO10 |
-| SDA | GPIO4 | | + | 3V3 (**5V değil**) |
-| | | | GND | GND |
+</details>
 
-- Bunlar **ESP32-C3** pinleridir; diğer çiplerin varsayılanları `settings.h` içindedir. İsteğe bağlı buzzer GPIO3 ve GND'ye bağlanır, bkz. [Buzzer](#buzzer-isteğe-bağlı).
-- Modüllerin üzerindeki **pin etiketlerine** bakın, sırasına değil; sıra üreticiye göre değişir.
-- KY-040 `+` pinini 3V3'e bağlayın: modülde bu pine giden pull-up dirençleri var, sinyaller böylece 3,3 V'ta kalır.
-- Pinler [`include/settings.h`](include/settings.h) içinde değiştirilebilir. GPIO 2, 8, 9 (açılış pinleri), 11-17 (flash), 18-19 (USB) ve 20-21'den (UART) kaçının.
-- Ek parça gerekmez: KY-040 ve çoğu OLED modülünde zaten pull-up dirençleri var, yazılım ayrıca düğme pinlerinde dahili pull-up'ları açar.
+## Hızlı kurulum
 
-## Buzzer (isteğe bağlı)
+### 1. Projeyi indirin
 
-Buzzer, cihazı odanın öbür ucundan da işe yarar yapar: bir baskı **bittiğinde** ve **hata verdiğinde** öter, ayrıca açılışta bir kez cıvıldar, böylece doğru bağlandığını anlarsınız.
-
-### Aktif mi, pasif mi?
-
-| | Aktif buzzer | Pasif buzzer |
-|---|---|---|
-| İçinde | kendi osilatörü | yalnızca bir bobin ya da piezo, minik bir hoparlör gibi |
-| Ses | tek sabit ton, yalnızca açık / kapalı | çipin verdiği her perde: notalar ve melodiler |
-| Hızlı deneme | pinlerine 3,3 V verince **bip** der | pinlerine 3,3 V verince yalnızca **tık** sesi çıkar |
-| Bu projede | sesler **ritimle** ayrılır | gerçek notalar çalar |
-
-Buzzer'ınız yalnızca tek bir nota çalıyorsa **aktif** buzzer'dır. Varsayılan ayar budur (`BUZZER_PASSIVE 0`). Melodi için pasif buzzer alıp `BUZZER_PASSIVE 1` yapın.
-
-### Bağlantı
-
-- **Üç pinli modül (S, +, -):** `S` → GPIO3, `+` → 3V3, `-` → GND. Bu modüllerin çoğu LOW sinyalle çalışır: hiç susmuyorsa ya da hiç ses vermiyorsa `BUZZER_ACTIVE_LOW 1` yapın.
-- **İki pinli çıplak buzzer:** `+` → GPIO3 ve `-` → GND, **yalnızca yaklaşık 20 mA'den az çekiyorsa** (küçük pasif piezo diskler çeker). Çıplak aktif buzzer çoğu zaman daha fazla çeker: transistör kullanın, örneğin BC547 ya da 2N2222 gibi bir NPN: GPIO3 → 1 kΩ direnç → baz, emitör → GND, buzzer `+` → 3V3, buzzer `-` → kolektör.
-- 5 V sinyal bekleyen bir parçayı doğrudan GPIO'ya bağlamayın.
-
-### Sesler
-
-| Olay | Aktif buzzer | Pasif buzzer |
-|---|---|---|
-| Açılış | bir kısa bip | bir kısa bip |
-| Baskı bitti | bip, bip, uzun bip | yükselen notalar (C6, E6, G6) |
-| Baskı hata verdi ya da hata kodu çıktı | dört bip | dört dönüşümlü nota, yüksek ve alçak |
-
-- Yalnızca izleme sırasında görülen durum değişiklikleri duyurulur; açılışta zaten bitmiş işler sessiz kalır. Ekran seçimi ve karusel diğer yazıcıların kontrolünü durdurmaz. Kontrol aralığı bildirim gecikmesi garantisi değildir; aşağıdaki kısmi rapor sınırını okuyun.
-- Sesi kapatmak ya da açmak için düğme butonunu **2,5 saniye** basılı tutun (ya da web panelini kullanın); sessiz durumu NVS hafızasına kaydedilir ve yeniden başlatınca hatırlanır.
-- Web panelindeki (`http://<cihaz-ip>`) **Ses & Melodi Stüdyosu** sekmesinden **buzzer ses seviyesini (`%1-%100`)** kısabilir, sesleri canlı test edebilir, **Aktif Buzzer - Ses Seviyesi Melodili** veya **Chiptune** modlarıyla sabit tonlu aktif buzzer'da bile yükselen/alçalan melodiler çalabilir, pasif buzzer moduna ve ters sinyal yönüne (`Active-LOW`) geçebilir, **7 bitiş melodisi** ve **5 hata melodisi** arasından seçim yapabilir ya da kendi özel melodinizi (`frekans:süre@ses%`, `@ses%:süre`, `0:sus`) tasarlayabilirsiniz.
-- Demo yazılımı (`pio run -e demo -t upload`), sahte yazıcıları bittikçe ve hata verdikçe sesleri çalar; bağlantınızı çevrimdışı denemenin kolay yolu budur.
-- `settings.h` derleme varsayılanları: `PIN_BUZZER` (`-1` = buzzer yok), `BUZZER_PASSIVE`, `BUZZER_ACTIVE_LOW`.
-
-## Kurulum, adım adım
-
-### 1. Kodu alın
-
-```bash
-git clone https://github.com/Asimmimx/bambu-oled-info
+```powershell
+git clone https://github.com/Asimmimx/bambu-oled-info.git
 cd bambu-oled-info
-copy include\secrets.example.h include\secrets.h        # macOS / Linux: cp include/secrets.example.h include/secrets.h
 ```
 
-`include/secrets.h` git'e girmez: Wi-Fi şifrenizi ve yazıcıların erişim kodlarını tutar. **Asla commit etmeyin.**
+Modülleri bağlayın, USB’yi takın ve PlatformIO’yu kurun. Windows’ta **PowerShell veya cmd** kullanın. `pio` bulunamıyorsa PlatformIO’nun kurulu olduğu Python ortamında `python -m platformio` kullanabilirsiniz.
 
-### 2. Önce ekranları görün (isteğe bağlı)
+### 2. Yazılımı yükleyin
 
-```bash
-pio run -e demo -t upload
+```powershell
+pio device list
+pio run -e esp32c3 -t upload --upload-port COM6
 ```
 
-Demo sürümü Wi-Fi ve yazıcı gerektirmez; sahte yazıcıları basıyor, boşta, bitmiş, hatalı ve çevrimdışı durumlardan geçirir.
+`COM6` yerine kartınızın portunu yazın. İlk derleme araç zincirini indirir. Bu ortam denenen C3 USB-UART kartları içindir; doğrudan USB kullanan kartlarda USB derleme bayrakları ve kart tanımı uyarlanmalıdır. [Başvuruya bakın](docs/reference.tr.md#platformioini).
 
-### 3. Yazıcılarınızı bulun
+İlk derleme için `secrets.h` şart değildir; yazılım örnek yapılandırmaya döner. Sonraki adımda örnek değerleri kendi ayarlarınızla değiştireceksiniz.
 
-Yazıcılarla aynı ağdaki bir bilgisayarda çalıştırın:
+### 3. Kurulum sayfasını açın
 
-```bash
+Çalışan Wi-Fi bilgisi yoksa telefon veya bilgisayarınızı **BambuMonitor-Setup** ağına bağlayın ve **http://192.168.4.1** adresini açın. “İnternet yok” uyarısı çıksa da bu ağda kalın.
+
+**Yazıcılar & Ağ** sekmesinde Wi-Fi bilgilerinizi girip yazıcılarınızı ekleyin. Kaydedince cihaz yeniden başlar. Bağlandıktan sonra normal ağınızdan **http://<cihaz-ip>** adresini kullanın. IP’yi seri günlükten veya son satırı uygunsa OLED **Info** sayfasından bulun.
+
+### 4. LAN yazıcısını ekleyin
+
+Yazıcının **adını, kısa adını, IP’sini, seri numarasını ve LAN erişim kodunu** girin. Bu kod yazıcının MQTT şifresidir; Bambu hesabınızın şifresi değildir. IP değişmesin diye yönlendiricinizde DHCP rezervasyonu yapın.
+
+Yakındaki yazıcıları bulmak için:
+
+```powershell
 python tools/find_printers.py
 ```
 
-```
-Name               Model      Serial            IP              Mode     Firmware
-Garage A1          A1 mini    0300DA000000000   192.168.1.148   cloud    01.08.01.00
+LAN erişim kodunu biliyorsanız onu kullanın. Bilmiyorsanız isteğe bağlı hesap aracı kodları alabilir; [erişim kodları ve bulut kurulumu](#erişim-kodları-ve-bulut-kurulumu) bölümüne bakın.
+
+### 5. İlk taramayı kontrol edin
+
+OLED’de **Connecting WiFi**, ardından **Reading printers** ve yazıcı durumu görünmelidir. Tanılama için:
+
+```powershell
+pio device monitor --port COM6 --baud 115200
 ```
 
-Bambu yazıcıların yaydığı SSDP duyurularını dinler, hesap ya da şifre gerekmez. Her yazıcının adını, **seri numarasını** ve **IP'sini** not alın. IP'nin değişmemesi için yazıcılara sabit adres verin (yönlendiricide DHCP rezervasyonu).
+Seri portu açmak kartı yeniden başlatabilir. Tekrar yüklemeden önce seri monitörü kapatın.
 
-### 4. `include/secrets.h` dosyasını düzenleyin
+<details>
+<summary><strong>Ayarları dosyada tutmayı mı tercih ediyorsunuz?</strong></summary>
+
+`include/secrets.example.h` dosyasını `include/secrets.h` olarak kopyalayın, bilgileri doldurun ve tekrar yükleyin. Bu dosya Git dışında tutulur. Aşağıdaki bilgiler hayalidir:
 
 ```cpp
-#define WIFI_SSID     "wifi-adiniz"
-#define WIFI_PASSWORD "wifi-sifreniz"
+#define WIFI_SSID "your-wifi"
+#define WIFI_PASSWORD "your-password"
 
 static const PrinterConfig PRINTERS[] = {
-    {"Garage A1",  "GARA",  "192.168.1.148", "0300DA000000000", "12345678"},
-    //  ad        kısa ad   LAN adresi       seri no            erişim kodu
+    {"Workshop A1", "A01", "192.168.1.101", "03000A000000001", "00000001"},
 };
+//   ad            kisa   LAN IP           seri no            erisim kodu
 ```
 
-Ad üst satırda görünür (yaklaşık 14 karakter sığar); `shortName` (en çok 5) genel bakışta kullanılır. Düz harf kullanın: ekran yazı tipinde `ş ı ğ İ` yok.
+Bulut yazıcısında `ip = ""` kullanılır. Adları yaklaşık 13–14 karakterde tutun; genel bakış `shortName` alanının ilk 5 karakterini gösterir.
 
-### 5. Erişim kodlarını alın
+**Web’den kaydedilen ayarlar, yeniden yazılım yüklense de dosyadaki varsayılanların önüne geçer.** Dosya varsayılanlarına dönmek için web ayarlarını güncelleyin veya kayıtlı yapılandırmayı panelden bilinçli olarak sıfırlayın.
 
-Her yazıcının 8 karakterlik bir LAN erişim kodu vardır; yerel MQTT servisinin şifresidir. Almanın üç yolu var:
+</details>
 
-**a) Yazıcıdan** (resmi). Yazıcının ayarlarında **LAN Only Mode**'u açın (A1 ailesinde ayarlar menüsünün son sayfasında); kod anahtarın hemen altında görünür. Bedeli: LAN Only Mode yazıcıyı Bambu Cloud'dan ayırır, o yazıcı için uzaktan izleme ve buluttan baskı çalışmaz.
+## Günlük kullanım
 
-**b) Bambu hesabınızdan, e-posta ve şifreyle.** Yazıcılar normal bulut modunda kalır:
+| Düğme hareketi | Sonuç |
+|---|---|
+| Çevir | Yazıcı seçilir; otomatik geçiş duraklar |
+| Tıkla | Sonraki OLED sayfası |
+| 0,8–2,5 saniye basıp bırak | Otomatik geçiş açılır / kapanır |
+| 2,5 saniye basılı tut | Buzzer sesi açılır / kapanır |
+| Ekran uykudayken dokun | Ekran uyanır; ilk hareket yalnızca uyandırır |
 
-```bash
-python tools/fetch_access_codes.py
+Varsayılanlar: yazıcı başına **10 saniye**, elle seçimden **45 saniye** sonra otomatik geçişe dönüş, etkin baskı veya hata yoksa **5 dakika** sonra ekran uykusu. Bunları web panelinden değiştirin. Yazıcı seçimi diğerlerinin arka planda izlenmesini durdurmaz.
+
+| Etiket | Anlamı |
+|---|---|
+| `RUN` / `PREP` / `PAUSE` | Basıyor / hazırlanıyor / duraklatılmış |
+| `DONE` / `IDLE` | Yeni bitmiş / boşta |
+| `ERR` | Başarısız baskı veya bildirilen hata |
+| `OFF` / `AUTH` | Bağlantı kurulamadı / erişim bilgisi reddedildi |
+| `...` | Henüz durum alınmadı |
+
+Bağlantı başarısızsa son değerler OLED’de `OFF` / `AUTH` ve noktalı çubuklarla kalır. Bulut sunucusuna bağlanmak, her uzak yazıcının çevrimiçi olduğunu tek başına kanıtlamaz; gösterilenler son alınan raporlardır.
+
+## Web paneli
+
+Paneli ESP32 sunar; ayrı sunucu gerekmez. Dil seçicisinden Türkçe veya İngilizce seçebilirsiniz.
+
+![Firmware HTML’sinden örnek yazıcı verileriyle oluşturulmuş Türkçe web paneli](docs/web-live.tr.png)
+
+*Önizleme firmware’deki gerçek HTML ve hayali verilerle oluşturuldu; gerçek cihaz veya hesap bilgisi içermez.*
+
+| Sekme | Temel işlevler |
+|---|---|
+| **Canlı Durum & Ekran** | Yazıcı kartları, OLED sayfası, otomatik geçiş, uyku, ses ve ekran mesajları |
+| **Ses & Melodi Stüdyosu** | Ses seviyesi, buzzer tipi, sinyal yönü, bitiş/hata melodileri ve ses testi |
+| **Ekran, Düğme & Saat** | Parlaklık, yön, enkoder yönü, süreler ve saat dilimi |
+| **Yazıcılar & Ağ** | Wi-Fi, en çok 8 yazıcı ve Bambu Cloud erişim bilgileri |
+
+<details>
+<summary><strong>Diğer üç sekmenin önizlemesi</strong></summary>
+
+![Örnek ayarlarla ses ve melodi sekmesi](docs/web-sound.tr.png)
+
+![Örnek ayarlarla ekran, düğme ve saat sekmesi](docs/web-display.tr.png)
+
+![Hayali ayarlarla yazıcılar ve ağ sekmesi](docs/web-network.tr.png)
+
+</details>
+
+Buzzer’ınıza uygun modu seçin: **aktif düz**, **pasif**, **aktif melodili** veya **aktif chiptune**. Panelde 7 bitiş, 5 hata melodisi ve özel melodi desteği vardır. Aktif modlar modülasyonu ve ritmi değiştirir; pasif buzzer verilen nota frekansını üretir. Ses testini deneyin; gerekirse sessiz durumu, ses seviyesi ve Active-LOW ayarını kontrol edin.
+
+## Erişim kodları ve bulut kurulumu
+
+**LAN erişimiyle bulut erişimi ayrıdır.** LAN yazıcısı IP ve erişim kodunu; uzak yazıcı bulut hesabının erişim bilgilerini ve kendi seri numarasını kullanır.
+
+İsteğe bağlı yardımcı araç **bilgisayarınızda** çalışır; bilgileri terminalde gizli girişle sorar:
+
+```powershell
+Copy-Item include/secrets.example.h include/secrets.h  # yalnızca secrets.h yoksa
+python tools/fetch_access_codes.py                    # LAN kodlarını al
+# Veya MakerWorld anahtarıyla:
+python tools/fetch_access_codes.py --token --cloud    # bulut yazıcılarını da hazırla
 ```
 
-E-posta ve şifrenizi sorar (yazarken görünmez) ve Bambu isterse e-postanıza gelen doğrulama kodunu da sorar. Hesabınızdaki yazıcıları listeler ve her erişim kodunu seri numarasına göre `secrets.h` dosyasına yazar.
+Araç `secrets.h` dosyasını yazar. Dosyayı kendi bilgisayarınızda inceleyip varsayılanları yükleyin veya gerekli ayarları web paneline aktarın. Kayıtlı web ayarları yine önceliklidir. Dosyada IP’nin boş bırakılması bulut erişimini seçer.
 
-**c) Bambu hesabınızdan, MakerWorld oturumuyla.** [makerworld.com](https://makerworld.com)'da (aynı hesap) zaten giriş yaptıysanız ve e-posta koduyla uğraşmak istemiyorsanız:
+Bulut anahtarını şifre gibi koruyun. Süresi dolar ve ESP32 kendiliğinden yenilemez; reddedildiğinde panelden güncelleyin. Bulut erişimi, sertifika doğrulaması için internet ve NTP gerektirir. Varsayılan sunucu global hesaplar içindir; Çin bölgesi bulut kullanımı doğrulanmadı. [Tüm araç seçenekleri](docs/reference.tr.md#yardımcı-araçlar).
 
-1. makerworld.com'u giriş yapılmış hâlde tarayıcıda açın.
-2. Geliştirici araçlarını açın (`F12`) → **Application** (Chrome / Edge) ya da **Storage** (Firefox) → **Cookies** → `https://makerworld.com`.
-3. Adı `token` olan çerezin **değerini** kopyalayın.
-4. `python tools/fetch_access_codes.py --token` komutunu çalıştırıp istemde yapıştırın (ekranda görünmez).
+## Ne sıklıkla kontrol eder?
 
-Anahtar yaklaşık üç ay boyunca şifreniz kadar güçlüdür. Kimseyle paylaşmayın, başka bir yere yapıştırmayın. Betik onu bir kez kullanır ve saklamaz. (b) ve (c) Bambu'nun **resmi olmayan** bulut API'sini kullanır, bkz. [Güvenlik ve gizlilik](#güvenlik-ve-gizlilik).
-
-### 6. Derleyip yükleyin
-
-```bash
-pio run -e esp32c3 -t upload
-pio device monitor            # isteğe bağlı: günlüğü izleyin
-```
-
-Windows'ta bunu **PowerShell ya da cmd'den, Git Bash'ten değil** çalıştırın; platformun araç kurucusu MSys'i reddeder. İlk derleme birkaç yüz MB araç zinciri indirir.
-
-### 7. Ne görmelisiniz
-
-Açılışta ekranda *Connecting WiFi*, sonra ilk yazıcı görünür. Seri günlük (115200 baud) şöyle olur:
-
-```
-[oled] found at 0x3C (SDA=GPIO4 SCL=GPIO5)
-[wifi] up, ip 192.168.1.167, rssi -47
-[Garaj A1] connected in 1287 ms, free heap 105424 (largest block 77812)
-[Garaj A1] pushall sent
-[Garaj A1] phase=3 42% left=206min elapsed=149min layer=118/290 nozzle=220/220 ...
-```
-
-## Wi-Fi'nizde olmayan yazıcılar
-
-Cihaz yalnızca bağlı olduğu Wi-Fi'yi görür. Başka yerdeki yazıcıları dahil etmenin iki yolu var:
-
-**Bambu Cloud üzerinden (her şey için tek cihaz).** `secrets.h` içinde `ip` değeri `""` olan yazıcı, Bambu hesabınız üzerinden okunur. Tek komut bunu hazırlar: bulut girişinizi saklar ve hesabınızdaki, `secrets.h` içinde olmayan tüm yazıcıları ekler:
-
-```bash
-python tools/fetch_access_codes.py --token --cloud       # --token olmadan: e-posta ve şifreyle giriş
-```
-
-- Tüm bulut yazıcıları **tek** bağlantıyı paylaşır, ekranda aralarında geçiş anlıktır.
-- Anahtar gönderilmeden önce, saat NTP ile ayarlandıktan sonra, sunucu sertifikası dahili CA paketiyle **doğrulanır**.
-- Anahtar yazılıma gömülür ve yaklaşık **üç ay** geçerlidir. Bir bulut yazıcısında `AUTH` görünce komutu yeniden çalıştırıp kartı yeniden yükleyin.
-- Yalnızca global (Çin dışı) hesaplar. Sunucu `BAMBU_CLOUD_HOST`, varsayılan `us.mqtt.bambulab.com`.
-- Uzun adlar (yaklaşık 14 karakterden fazla) ekranda kısalır; `secrets.h` içinde yeniden adlandırın.
-
-**İkinci bir cihaz.** O yazıcıların yanına kendi `secrets.h` dosyasıyla başka bir cihaz kurun. Onlarla yerel konuşur, buluta hiç ihtiyaç duymaz.
-
-## Ayar başvurusu
-
-### `include/settings.h`
-
-| Ayar | Varsayılan | Anlamı |
+| Bağlantı | Normal kontrol | Son 10 tahmini dakika |
 |---|---|---|
-| `PIN_OLED_SDA`, `PIN_OLED_SCL` | 4, 5 | Ekranın I2C pinleri |
-| `PIN_ENC_CLK`, `PIN_ENC_DT`, `PIN_ENC_SW` | 6, 7, 10 | Düğme pinleri (buradaki varsayılanlar C3 içindir; diğer çiplerin kendi değerleri var) |
-| `PIN_BUZZER` | 3 | Buzzer pini; `-1` = buzzer yok |
-| `BUZZER_PASSIVE` | 0 | 0 = aktif buzzer (yalnızca ritim), 1 = pasif (notalar) |
-| `BUZZER_ACTIVE_LOW` | 0 | Buzzer modülü pin LOW iken ötüyorsa 1 |
-| `ENC_REVERSE` | 0 | Saat yönünde çevirmek geri gidiyorsa 1 yapın |
-| `ENC_EDGES_PER_DETENT` | 4 | Düğmenin bir tıkı bir yazıcı atlıyorsa 2 deneyin |
-| `TIMEZONE` | `<+03>-3` | Bitiş saati için POSIX saat dilimi, örn. `CET-1CEST,M3.5.0,M10.5.0/3` |
-| `CAROUSEL_MS` | 10000 | Otomatik modda her yazıcının ekranda kalma süresi |
-| `MANUAL_TIMEOUT_MS` | 45000 | Düğmeye dokunulmazsa otomatik mod bu süre sonra devam eder |
-| `DONE_ALERT_MS` | 300000 | Biten iş bu süre boyunca `DONE` yanıp söner, sonra yazıcı sabit `IDLE` gösterir |
-| `SCREEN_SLEEP_MS` | 300000 | Hiçbir şey basılmıyorsa bu süre sonra ekran kapanır; 0 = hiç |
-| `CLOUD_POLL_MS`, `CLOUD_FINISH_POLL_MS` | 300000, 60000 | Normal / bitişe yakın bulut kontrol aralığı |
-| `LAN_POLL_MS`, `LAN_FINISH_POLL_MS` | 30000, 10000 | Normal / bitişe yakın LAN kontrol aralığı |
-| `FINISH_SOON_MIN` | 10 | Sık kontrole geçilen tahmini kalan dakika |
-| `AUTO_LISTEN_MS` | 3500 | Sınırlı bir ziyarette durum alındıktan sonraki dinleme süresi |
-| `FIRST_REPORT_WAIT_MS` | 7000 | Bağlanıp sessiz kalan yazıcıdan vazgeçme süresi |
-| `CONNECT_TIMEOUT_S`, `HANDSHAKE_TIMEOUT_S` | 3, 8 | TCP ve TLS zaman aşımları |
-| `OFFLINE_RETRY_MS` | 60000 | Erişilemeyen yazıcı ya da reddedilen bilgi için yeniden deneme aralığı |
-| `FOCUS_RETRY_MS` | 8000 | O yazıcı ekrandayken yeniden deneme aralığı |
-| `PUSHALL_MIN_INTERVAL_MS` | 330000 | Yazıcı başına iki tam durum isteği arasındaki en kısa süre (5,5 dk) |
-| `WARMUP_CLOUD_WAIT_MS` | 8000 | Açılış taraması: bulut yazıcılarının rapor vermesi için bekleme süresi |
-| `HEARTBEAT_MS` | 10000 | Seri günlükteki durum satırının aralığı |
-| `MQTT_BUFFER_BYTES` | 24576 | Kabul edilen en büyük MQTT mesajı; büyükler sessizce atılır |
+| Bambu Cloud | **5 dk** | **1 dk** |
+| LAN | **30 sn** | **10 sn** |
 
-### `include/secrets.h`
+Açık MQTT oturumundaki değişiklikler hemen işlenir. ESP32 tek TLS oturumu tutar ve süresi gelen diğer yazıcıları ziyaret eder; mümkün olduğunda LAN ziyaretleri arasında ortak bulut bağlantısına döner. Tablodakiler ziyaret sonundan başlayan hedef aralıklardır; bildirim gecikmesi garantisi değildir.
 
-| Girdi | Anlamı |
+**Kaçırılan bitiş mesajı uyarıyı yine geciktirebilir.** Bazı yazıcılar yalnızca değişen alanları gönderir. Bağlantı kapalıyken FINISH gelirse sonraki tam rapor gerekebilir. Yazıcı yükünü azaltmak için tam durum istekleri (`pushall`) normalde **330 saniye arayla** gönderilir. Çalışan baskının son tahmini süresi sıfıra ulaştığında en fazla **60 saniyede bir** tam durum doğrulaması istenir; kaçırılan FINISH için tekrar 5,5 dakikalık döngü beklenmez. Bu istisna yalnızca çalışan işin sonuna uygulanır; süre tahmini tek başına bitiş uyarısı vermez.
+
+## Uyumluluk
+
+| Donanım | Gerçekte kontrol edilen |
 |---|---|
-| `WIFI_SSID`, `WIFI_PASSWORD` | Wi-Fi'niz (2,4 GHz) |
-| `PRINTERS[]` | Her yazıcı için bir girdi: `{ad, kısaAd, ip, seriNo, erişimKodu}`. `ip` = `""` "Bambu Cloud üzerinden" demektir. En çok 8 (`src/Config.h` içindeki `MAX_PRINTERS`); genel bakış ilk 6'yı gösterir. |
-| `BAMBU_CLOUD_USER`, `BAMBU_CLOUD_TOKEN`, `BAMBU_CLOUD_HOST` | Yalnızca bulut yazıcıları için; `fetch_access_codes.py --cloud` yazar |
+| **ESP32-C3 + SSD1306 + KY-040** | CH343 USB-UART kartlarda çalıştırıldı |
+| **LAN üzerinden üç A1 mini** | LAN Only Mode kapalı, normal bulut modunda denendi; kaydedilen firmware 01.08.01.00 |
+| **Üç uzak bulut yazıcısı** | Durumları alındı; sahibi A1, X2D ve A2L olarak belirtiyor; model kimliği bağımsız doğrulanmadı |
+| **ESP32, S2, S3, C6** | Derlemeler geçti; bu kartlarda çalıştırılmadı |
+| **Buzzer / gerçek hata / bitiş gecikmesi** | Derleme ve demo kapsamı var; sesin duyulması, gerçek hata ve yeni bitiş gecikmesi doğrulanmadı |
+| **Diğer kart ve yazıcı modelleri** | Doğrulanmadı; ortak protokol tek başına donanım testi değildir |
 
-### `platformio.ini`
-
-| Ortam | Kullanım |
-|---|---|
-| `esp32c3` | Gerçek yazılım |
-| `demo` | Aynı arayüz, sahte yazıcılar, Wi-Fi yok |
-| `esp32s3`, `esp32`, `esp32c6`, `esp32s2` | Diğer çipler, yalnızca derleme denendi, bkz. [Hangi ESP32 çalışır?](#hangi-esp32-çalışır) |
-
-**Doğal USB'li** bir kart için (ayrı USB-UART çipi yok) `build_flags` içindeki iki `-DARDUINO_USB_...` satırını silin. Başka kartlar için `board` değerini değiştirin. Platform [pioarduino](https://github.com/pioarduino/platform-espressif32) (Arduino çekirdeği 3), flash 40 MHz DIO'ya zorlanır (bkz. [Sorun giderme](#sorun-giderme)).
-
-## Nasıl çalışır
-
-### Genel resim
-
-```
- LAN'daki yazıcılar ──┐                      ┌── Düğme ─────► input ─┐
-   (MQTT/TLS :8883)   ├─► poller görevi ─► state ◄── ui (loop) ◄──────┘
- Bambu Cloud ─────────┘   (tek oturum)    (paylaşılan, kilitli)   │
-   (MQTT/TLS :8883)                                              └──► OLED
-```
-
-İki görev, her yazıcının son bilinen durumunu tutan küçük, kilitli bir tabloyu paylaşır:
-
-- **Poller** (`src/Poller.cpp`) ağı yönetir. Aynı anda tek bir MQTT sunucusuyla konuşur ve öğrendiklerini tabloya yazar.
-- **Arayüz** (`src/Ui.cpp`, Arduino `loop` içinde) tabloyu okur, ekranları çizer ve düğmeyi işler. Düğmenin kendisi bir kesmede çözülür (`src/Input.cpp`).
-
-### Neden aynı anda tek bağlantı
-
-ESP32-C3 aynı anda **tek MQTT/TLS oturumu** tutar. Poller, ekran seçiminden bağımsız olarak süresi gelen yazıcıları ziyaret eder; en çok gecikeni önce seçer. Ziyaretler sınırlıdır, böylece elle tek yazıcıya odaklanmak diğerlerini aç bırakmaz. Ziyaretler arasında bağlantı açık tutulur; LAN ziyaretleri arasında mümkünse tüm uzak yazıcıları dinleyen ortak bulut oturumuna dönülür. Bu, karma LAN/bulut kurulumunda ek TLS bağlantıları gerektirir. Yalnızca LAN kullanılıyorsa son ziyaret edilen yazıcı bağlı kalır.
-
-### Durum protokolü
-
-Yazıcı 8883 portunda (TLS) bir MQTT sunucusu çalıştırır. Cihaz `bblp` kullanıcısı ve yazıcının **erişim koduyla** giriş yapar, `device/<seriNo>/report` konusuna abone olur ve `device/<seriNo>/request` konusuna `{"pushing":{"command":"pushall"}}` yayınlayarak bir kez tam durum ister. Bulut yazıcılarında sunucu Bambu'nundur, kullanıcı `u_<hesap numaranız>`, şifre anahtarınızdır; konular aynıdır. Protokol topluluk tarafından [OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI)'da belgelenmiştir.
-
-Kullanılan alanlar (hepsi `print` altında): `gcode_state`, `mc_percent`, `mc_remaining_time`, `layer_num`, `total_layer_num`, `nozzle_temper`, `nozzle_target_temper`, `bed_temper`, `bed_target_temper`, `chamber_temper`, `print_error`, `hms`, `wifi_signal`, `subtask_name` / `gcode_file`, `spd_lvl`, `spd_mag`, `stg_cur`, `cooling_fan_speed`, `nozzle_diameter`, `ams.tray_now`, `ams.ams[].tray[].tray_type` ve `vt_tray.tray_type`. Her mesaj ayrıştırılırken süzülür; 9 KB'lık bir rapor yalnızca birkaç yüz bayt RAM tutar.
-
-### Bilinmesi gerekenler
-
-- **Kısmi raporlar.** A1 gibi yazıcılar yalnızca *değişen* alanları gönderir. Yazılım bunları hatırlanan duruma ekler; ilk ziyarette ve sonra en çok **5,5 dakikada bir** tam durum ister (`pushall`): Bambu, yazıcı işlemcisi takılabileceği için daha sık istenmemesini öneriyor.
-- **Uyarlanabilir kontrol ve sınırları.** Son kalan-süre alanının kendi zaman damgası tutulur; sıcaklık mesajları bu saati yenilemez. Yalnızca çalışan baskılarda geçen süre düşülerek son 10 dakikaya girildiği hesaplanır; bu hesap baskıyı kendiliğinden bitmiş saymaz. Bulut kontrolü 5 dk → 1 dk, LAN kontrolü 30 sn → 10 sn olur. Bunlar ziyaret sonundan başlayan hedef aralıklardır; çok sayıda yazıcı, bağlantı/NTP zaman aşımı ve Wi-Fi kesintisi gecikme ekleyebilir. **Daha sık ziyaret, daha sık `pushall` değildir**: tam rapor alt sınırı 330 sn olarak korunur. Bağlantı kapalıyken kaçırılan tek seferlik FINISH değişikliği sonraki tam rapora kadar fark edilmeyebilir. Açık oturumdaki FINISH hemen ses/ekran uyarısını tetikler; tahmini süre sıfıra indi diye uyarı verilmez.
-- **Açılış taraması.** Karusel başlamadan önce her yazıcı bir kez okunur (LAN yazıcıları tek tek, sonra tüm bulut yazıcıları için tek bir bulut oturumu); altı yazıcı için yaklaşık on saniye sürer.
-- **Geçen süre bir tahmindir.** Yazıcılar kalan süreyi ve yüzdeyi bildirir, harcanan süreyi değil. Geçen süre, %1-99 arası için `kalan × yüzde / (100 − yüzde)` ile hesaplanır; yaklaşıktır ve cihaz açılmadan önce biten bir baskı için bilinmez.
-- **Bitiş saati.** `şimdi + kalan süre`; NTP ve `TIMEZONE` kullanılır.
-- **Yeniden deneme.** Erişilemeyen yazıcı için 60 sn (deneme sonunda ekranda seçiliyse 8 sn) beklenir. Reddedilen bilgiler için en az 60 sn beklenir; ekran seçimi bu beklemeyi sıfırlamaz. Bağlantı kaybı çevrimdışı olarak kaydedilir.
-- **TLS.** Yazıcılar yerel ağda kendinden imzalı sertifika kullanır, olduğu gibi kabul edilir. Bulut sunucusunun sertifikası, anahtar gönderilmeden önce dahili Mozilla CA paketiyle doğrulanır.
-- **İş adları.** Gösterilen ad `subtask_name`'deki iş adıdır (yoksa `gcode_file`'daki dosya adı). Bambu Studio'dan gönderilen işler *proje* adını bildirir ve bu ad bir projenin her plakasında aynıdır; bu yüzden plaka numarası eklenir: `Organizer (plate 2)`.
-- **Dosya adları** ekran yazı tipi için ASCII'ye çevrilir: Türkçe harfler sadeleştirilir (ğ → g), desteklenmeyenler `?` olur.
-- **Bellek.** 2026-10-21 tarihindeki 45 saniyelik C3 açılış kontrolünde yaklaşık 94 KB boş heap, en düşük yaklaşık 75 KB görüldü. Bu, uzun süreli sızıntı testi değildir. Yazılım 3 MB’lık bölümde yaklaşık 1,3 MB’tır (OTA yok).
-- **Ekran uykusu.** 5 dakika boyunca hiçbir yazıcı basmıyor, duraklamış, hazırlanıyor ya da hatalı değilse ekran kapanır; düğmeye dokunmak veya yeni bir etkinlik uyandırır.
-- **Açılış tanılaması.** Günlük, ekranın nerede yanıt verdiğini yazar (`[oled] found at 0x3C ...`); yapılandırılan pinlerde sessizse tüm diğer pin çiftlerini tarayıp nereye bağlı olduğunu söyler.
-
-## Proje yapısı
-
-```
-platformio.ini            derleme ortamları (esp32c3, demo), platform ve flash ayarları
-include/settings.h        pinler, süreler, dil, saat dilimi
-include/secrets.example.h git'e girmeyen secrets.h için şablon
-src/main.cpp              setup + loop, periyodik durum satırı
-src/Config.*              yazıcı listesi ve bilgiler (NVS + secrets.h varsayılanları)
-src/Web.*                 dahili HTTP ayar sayfası ve kurulum erişim noktası (AP)
-src/State.*               paylaşılan durum tablosu (kilitli)
-src/Poller.*              MQTT oturumları, ayrıştırma, yeniden deneme, bulut, demo verisi
-src/Input.*               düğme çözme (kesme) ve buton (tıklama / uzun / çok uzun basış)
-src/Buzzer.*              isteğe bağlı buzzer: aktif ve pasif buzzer için ses kalıpları
-src/Ui.*                  ekran, ekranlar, otomatik geçiş, mesaj, ekran uykusu
-tools/find_printers.py    LAN'daki yazıcıları listeler (SSDP)
-tools/fetch_access_codes.py  erişim kodlarını / bulut girişini Bambu hesabından okur
-docs/wiring.svg           bağlantı şeması
-```
-
-## Yardımcı araçlar
-
-İkisi de bağımlılığı olmayan düz Python 3 betikleridir.
-
-**`tools/find_printers.py [--seconds 40]`** Bambu yazıcıların SSDP duyurularını dinler; ad, model, seri no, IP, bağlantı modu (örn. `cloud`) ve firmware yazar. Hiçbir şey göndermez.
-
-**`tools/fetch_access_codes.py`**
-
-| Seçenek | Etkisi |
-|---|---|
-| *(yok)* | E-posta ve şifreyle giriş (gerekirse e-posta kodunu sorar) |
-| `--token` | Giriş yerine makerworld.com'daki `token` çerezini yapıştırın |
-| `--cloud` | Bulut girişini de `secrets.h`'a yazar ve hesaptaki diğer yazıcıları bulut yazıcısı olarak ekler |
-| `--export-others` | `secrets.h`'da olmayan yazıcıları `include/secrets.others.h` dosyasına kaydeder (git'e girmez) |
-| `--cn` | Çin bölgesi hesabı (yazılımın bulut modu bunun için denenmedi) |
-| `--secrets YOL` | Başka bir `secrets.h` |
-
-Yedek alır (`secrets.h.bak`), yazıcılarınızı tablo olarak yazdırır ve **şifrenizi ya da anahtarınızı asla yazdırmaz veya saklamaz** (`--cloud` ile anahtar bilerek `secrets.h` dosyasına yazılır). Kendini dürüstçe `bambu-oled-info` olarak tanıtır, Bambu uygulaması gibi davranmaz.
-
-## Güvenlik ve gizlilik
-
-- **Ne nerede durur.** Wi-Fi şifresi, erişim kodları, seri numaraları ve bulut anahtarı yalnızca `include/secrets.h` içinde (git'e girmez; `.bak` kopyaları ve `secrets.*.h` de hariç) ve gömülü olarak cihazın flash'ında bulunur. Göndermeden önce `git status` kontrol edin.
-- **Bulut anahtarı Bambu hesabınızın şifresidir**, yaklaşık üç ay boyunca. `--cloud` ile cihazın flash'ında durur; cihazı anahtar gibi görün: kaybederseniz ya da başkasına verirseniz Bambu şifrenizi değiştirin. Yalnızca LAN kullanımı hiç anahtar gerektirmez.
-- **Salt okunur.** Yazılımın yayınladığı tek mesaj durum isteğidir (`pushall`). Yazıcılarınızı kontrol edemez.
-- **LAN TLS'i doğrulanmaz.** Yazıcılar kendinden imzalı sertifika kullanır; ağınıza erişimi olan biri yazıcı gibi davranabilir. Cihaz erişim kodunu yalnızca `secrets.h` içindeki adrese gönderir.
-- **Resmi olmayan API.** Hesap araçları ve bulut modu Bambu'nun belgelenmemiş bulut API'sini kullanır. Bambu bunu her an değiştirebilir veya kısıtlayabilir; bir hesabın otomatik kullanımı hoşlarına gitmeyebilir. Yalnızca kendi yazıcılarınız için, kendi sorumluluğunuzda kullanın.
+**2026-10-21** tarihinde altı derleme ortamı ve ana bilgisayar zamanlama testleri geçti. C3’e yükleme doğrulandı; 45 saniyelik açılış kontrolünde altı yazıcı ve web durum yanıtı çalışma hatası işareti olmadan okundu. Test sırasında bir baskı bitişi gözlenmedi. [Doğrulama ve geliştirme](docs/reference.tr.md#zamanlama-regresyon-testleri).
 
 ## Sorun giderme
 
-| Belirti | Olası neden ve çözüm |
+| Sorun | İlk kontrol |
 |---|---|
-| Kart tamamen sessiz, yüklemeden sonra bile seri çıktı yok | Birçok ESP32-C3 kartı flash'ını 80 MHz'de okuyamaz: önyükleyici `partition 0 invalid magic number` ile döngüye girer (yalnızca güncel önyükleyiciyle görünür). Bu depo 40 MHz DIO ve pioarduino platformunu zorlar. Platformu değiştirirseniz bu ayarları koruyun. |
-| Derleme `MSys/Mingw is not supported` ile düşüyor | `pio`'yu Git Bash'ten değil PowerShell ya da cmd'den çalıştırın. |
-| OLED boş kalıyor | `pio device monitor` açın. Günlük `[oled] found at 0x3C` yazar ya da tüm pin çiftlerini tarayıp ekranın nerede yanıt verdiğini söyler. Hiçbir yerde yanıt yoksa VCC (3V3), GND ve lehim noktalarına bakın. |
-| Düğme ya da buton bir şey yapmıyor | Günlük her olayı `[input] left / right / click / long press` olarak yazar; 10 sn'lik durum satırı `clk= dt= sw=` gösterir (boştayken hepsi 1, basılıyken `sw` 0). Hiç değişmeyen seviye kablo sorunudur. Dönüş ters: `ENC_REVERSE`. Bir tık atlıyor: `ENC_EDGES_PER_DETENT`. |
-| Yazıcıda `AUTH` | Erişim kodu yanlış. Bulut yazıcısında: anahtarın süresi dolmuş, `fetch_access_codes.py --token --cloud` komutunu yeniden çalıştırıp kartı yeniden yükleyin. |
-| Yazıcıda `OFF` | Yazıcı kapalı ya da bu ağdan erişilemiyor (başka alt ağ, misafir Wi-Fi, istemci yalıtımı). |
-| Ekranda "veri bekleniyor" kalıyor | Yazıcı açılıştan beri hiç veri vermedi. Durum isteği yanıtsız kaldıysa günlükte `connected but no full report received` yazar. |
-| Büyük bir yazıcı hiç güncellenmiyor | Mesajları `MQTT_BUFFER_BYTES` değerini aşıyor olabilir; günlük görülen en büyük mesajı yazar. Değeri artırın. |
-| Bitiş saati yok | NTP eşitlenmedi (internet gerekir) ya da yazıcı baskıda değil. |
-| Buzzer sessiz | `PIN_BUZZER` ve bağlantıyı kontrol edin; açılışta bir kez cıvıldar. Pasif buzzer notaları çalmak için `BUZZER_PASSIVE 1` ister. Susturulmuş olabilir: butonu 2,5 sn basılı tutun. |
-| Buzzer hiç susmuyor ya da olmaması gereken yerde ötüyor | Modül LOW sinyalle çalışıyor: `BUZZER_ACTIVE_LOW 1` yapın. |
-| Adlarda harfler eksik | Yazı tipinde `ş ı ğ İ` yok; `secrets.h` içinde düz harf kullanın. |
+| OLED boş | SSD1306 **128×32 I2C**, 3V3, GND, SDA4 ve SCL5; seri günlükte `[oled]` satırları |
+| Kurulum sayfası açılmıyor | `BambuMonitor-Setup` ağına katılıp `http://192.168.4.1` açın; Wi-Fi kurulunca cihazın LAN IP’sini kullanın |
+| Yazıcı `OFF` gösteriyor | Yazıcının açık olması, IP, DHCP rezervasyonu ve misafir ağı/istemci yalıtımı |
+| Yazıcı `AUTH` gösteriyor | LAN erişim kodu veya bulut anahtarı; kayıtlı web ayarlarını güncelleyin |
+| Bitiş uyarısı gecikiyor | [Kontrol sınırlarını](#ne-sıklıkla-kontrol-eder) ve günlükteki bağlantı hatalarını inceleyin |
+| Düğme ters dönüyor / adım atlıyor | Panelde enkoder yönü ve hassasiyeti |
+| Buzzer sessiz / sürekli ötüyor | Sessiz modu, ses seviyesi, aktif/pasif seçimi, Active-LOW ve modül bağlantısı |
+| Kod değişse de erişim bilgisi değişmiyor | NVS’deki web yapılandırması `secrets.h` dosyasının önüne geçer |
+| C3 açılmıyor | Projedeki pioarduino platformunu ve 40 MHz DIO ayarlarını koruyun |
+| Windows yüklemesinde Unicode hatası | Terminalde `PYTHONUTF8=1` ve `PYTHONIOENCODING=utf-8` ayarlayın |
 
-## Sınırlar ve fikirler
+Cihazı güvendiğiniz LAN’da tutun: web paneli HTTP kullanır ve giriş ekranı yoktur. İnternete doğrudan açmayın. Bilgiler cihazın flash/NVS belleğinde ve isteğe bağlı `secrets.h` dosyasında tutulur; bu dosyayı commit etmeyin, ayıklanmamış günlükleri paylaşmayın. Bulut TLS sertifikası doğrulanır; yerel yazıcı sertifikaları doğrulanmadan kabul edilir.
 
-- Yalnızca birkaç model denendi, bkz. [Durum](#durum).
-- Bulut anahtarını cihaz kendi başına yenileyemez (Bambu'nun yenileme noktası kullanılamaz), bu yüzden ~3 ayda bir web ayar sayfasından (`http://<cihaz-ip>`) veya yeniden yükleyerek güncellenmelidir.
-- Havadan yazılım güncellemesi (OTA) yok (büyük bölüm OTA düzeninin yerini alır).
-- HMS uyarıları yalnızca sayılır, çözülmez; geçen süre bir tahmindir.
-- Fikirler: baskı bitince LED, Home Assistant / MQTT çıkışı, liste görünümlü daha büyük ekran, yazıcı başına eşikler.
+## Başvuru, demo ve katkı
 
-## Zamanlama regresyon testleri
+- **[Ayrıntılı başvuru](docs/reference.tr.md):** tüm ayarlar, mimari, yardımcı araç seçenekleri, testler ve API sınırları.
+- **Demo:** `pio run -e demo -t upload`, gerçek izleme yerine sahte yazıcılar kullanır ve Wi-Fi’yi atlar. Gerçek izlemeye dönmek için `esp32c3` yükleyin.
+- **Katkı:** kartı, yazıcı modelini, firmware’i, LAN/bulut kullanımını ve gizli bilgileri çıkarılmış günlüğü ekleyin. Yalnızca derlediğinizi mi, donanımda çalıştırdığınızı mı belirtin.
+- **Sınırlar:** OTA güncelleme ve otomatik bulut anahtarı yenileme yoktur; HMS bildirimleri çözümlenmez, sayılır.
 
-Ana bilgisayarda C++ derleyicisiyle çalıştırın (çıktı dosyasını depo dışında tutun):
-
-```powershell
-g++ -std=c++11 -Wall -Wextra -Werror tests/poll_schedule_test.cpp -o "$env:TEMP/bambu-poll-test.exe"
-& "$env:TEMP/bambu-poll-test.exe"
-```
-
-Testler; normal/sık kontrol aralıklarını, veri gelmeden bitişe yaklaşmayı, bilinmeyen/duraklatılmış süreyi, odak kaynaklı aç bırakmayı, kimlik doğrulama beklemesini ve `millis()` taşmasını kapsar. Donanımda gerçek FINISH bildirimi ayrıca denenmelidir.
-
-## Katkı
-
-Sorunlar ve çekme istekleri memnuniyetle karşılanır. En faydalı rapor, **çalışan ya da çalışmayan bir modeldir**: lütfen yazıcı modelini, firmware sürümünü, LAN mı bulut mu olduğunu ve bir otomatik geçiş turunun seri günlüğünü ekleyin (önce seri numaranızı ve kodlarınızı silin). Değişikliği `pio run -e esp32c3` ve `pio run -e demo` ile deneyin; ikisi de uyarısız derlenmeli.
-
-## Teşekkür ve lisans
-
-Resmi değildir, Bambu Lab ile ilgisi yoktur. Protokol bilgisi topluluk projesi [OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI)'dan gelir. Kütüphaneler: [U8g2](https://github.com/olikraus/u8g2), [PubSubClient](https://github.com/knolleary/pubsubclient) ve [ArduinoJson](https://arduinojson.org/); platform: [pioarduino](https://github.com/pioarduino/platform-espressif32).
-
-[MIT Lisansı](LICENSE) ile yayınlanmıştır.
+Resmi olmayan projedir; Bambu Lab ile bağlantılı değildir. Protokol araştırması: [OpenBambuAPI](https://github.com/Doridian/OpenBambuAPI). Kullanılanlar: [U8g2](https://github.com/olikraus/u8g2), [PubSubClient](https://github.com/knolleary/pubsubclient), [ArduinoJson](https://arduinojson.org/) ve [pioarduino](https://github.com/pioarduino/platform-espressif32). [MIT lisansı](LICENSE).

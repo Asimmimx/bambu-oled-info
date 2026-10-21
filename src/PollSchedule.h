@@ -18,6 +18,11 @@ inline uint32_t interval(bool cloud, bool near, uint32_t cloudNormal, uint32_t c
   return cloud ? (near ? cloudNear : cloudNormal) : (near ? lanNear : lanNormal);
 }
 
+inline uint32_t fullReportInterval(bool running, int32_t remainingMin, uint32_t remainingAt,
+                                   uint32_t now, uint32_t normalMs, uint32_t confirmMs) {
+  return nearFinish(running, remainingMin, remainingAt, now, 0) ? confirmMs : normalMs;
+}
+
 struct Next {
   int index = -1;
   uint32_t overdue = 0;

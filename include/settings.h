@@ -102,6 +102,9 @@
 #define FOCUS_RETRY_MS        8000   // ... while you are looking at it
 // Bambu's own advice: do not send "pushall" more often than every 5 minutes (P1/A1 CPUs lag).
 #define PUSHALL_MIN_INTERVAL_MS 330000
+// Brief recovery exception: when the last running ETA reaches zero, confirm the
+// authoritative phase at most once a minute instead of waiting another 5.5 minutes.
+#define FINISH_CONFIRM_MS      60000
 
 // At power-up every printer is read once before the carousel starts, so no screen says "waiting".
 // A cloud session shares one wait for all cloud printers:
