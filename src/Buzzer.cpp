@@ -1,6 +1,7 @@
 #include "Buzzer.h"
 #include <Arduino.h>
 #include <stdlib.h>
+#include <atomic>
 #include <string.h>
 #include "Config.h"
 #include "settings.h"
@@ -107,8 +108,7 @@ constexpr uint8_t kMaxCustomSteps = 28;
 Step g_customSteps[kMaxCustomSteps];
 Pattern g_customPattern = {g_customSteps, 0};
 
-volatile int8_t g_pendingSound = -1;   // Sound enum, or 10 for already-parsed g_customPattern
-volatile int8_t g_pendingPreset = -1;  // -1 = use config::settings()
+std::atomic<int> g_pending{-1}; // low byte: Sound (10 = custom); high byte: preset + 1
 const Pattern* g_current = nullptr;
 uint8_t g_step = 0;
 uint32_t g_stepAt = 0;
@@ -250,26 +250,25 @@ void begin() {
 
 void play(Sound s) {
   if (!available() || config::settings().muted) return;
-  g_pendingPreset = -1;
-  g_pendingSound = (int8_t)s;
+  g_pending.store((int)s);
 }
 
 void test(Sound s, int presetOverride) {
   if (!available()) return;
-  g_pendingPreset = (int8_t)presetOverride;
-  g_pendingSound = (int8_t)s;
+  const int preset = constrain(presetOverride, -1, 127);
+  g_pending.store(((preset + 1) << 8) | (int)s);
 }
 
 void playCustom(const char* patternStr) {
   if (!available()) return;
   stop();
   if (parseCustomSteps(patternStr)) {
-    g_pendingSound = 10;
+    g_pending.store(10);
   }
 }
 
 void stop() {
-  g_pendingSound = -1;
+  g_pending.store(-1);
   g_current = nullptr;
   outputStep({0, 0, 0});
 }
@@ -277,13 +276,14 @@ void stop() {
 void update() {
 #if PIN_BUZZER >= 0
   const uint32_t now = millis();
-  const int8_t pend = g_pendingSound;
-  if (pend >= 0) {
-    g_pendingSound = -1;
+  const int request = g_pending.exchange(-1);
+  if (request >= 0) {
+    const int pend = request & 0xff;
+    const int preset = (request >> 8) - 1;
     if (pend == 10) {
       g_current = &g_customPattern;
     } else {
-      g_current = resolvePattern((Sound)pend, g_pendingPreset);
+      g_current = resolvePattern((Sound)pend, preset);
     }
     if (g_current && g_current->count > 0) {
       g_step = 0;

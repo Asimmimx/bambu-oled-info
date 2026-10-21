@@ -49,7 +49,7 @@ Durum protokolü aynı olduğu için diğer modeller prensipte çalışmalı ama
 ## Özellikler
 
 - **Altı yazıcı tek 128x32 ekranda**: tek tek (her biri 10 sn) ya da hepsi birden (genel bakış).
-- Ekrandaki yazıcı için **canlı güncelleme**; diğerlerinin son bilinen durumu hatırlanır.
+- **Ekrandan bağımsız izleme**: bulutta 5 dk, son 10 tahmini dakikada 1 dk; LAN’da 30 sn / 10 sn. Açık MQTT oturumundaki değişiklikler hemen işlenir.
 - **Kısmi** durum gönderen yazıcılarla (A1 ailesi) ve tam durum gönderenlerle çalışır.
 - **Bitiş saati** ("17:42'de biter"): yazıcının kalan süresi ve NTP ile hesaplanır.
 - Başka ağdaki yazıcılar için doğrulanmış TLS bağlantılı **bulut modu**.
@@ -208,7 +208,7 @@ Buzzer'ınız yalnızca tek bir nota çalıyorsa **aktif** buzzer'dır. Varsayı
 | Baskı bitti | bip, bip, uzun bip | yükselen notalar (C6, E6, G6) |
 | Baskı hata verdi ya da hata kodu çıktı | dört bip | dört dönüşümlü nota, yüksek ve alçak |
 
-- Yalnızca **canlı** görülen değişiklikler duyurulur: cihaz açıldığında zaten bitmiş ya da hatalı olan yazıcı sessiz kalır; "bitti", yazıcının daha önce basıyor, duraklamış ya da hazırlanıyor olduğu anlamına gelir. Otomatik modda her yazıcı yaklaşık dakikada bir ziyaret edilir, yani ekranda olmayan bir yazıcının uyarısı yaklaşık bir dakikaya kadar geç gelebilir.
+- Yalnızca izleme sırasında görülen durum değişiklikleri duyurulur; açılışta zaten bitmiş işler sessiz kalır. Ekran seçimi ve karusel diğer yazıcıların kontrolünü durdurmaz. Kontrol aralığı bildirim gecikmesi garantisi değildir; aşağıdaki kısmi rapor sınırını okuyun.
 - Sesi kapatmak ya da açmak için düğme butonunu **2,5 saniye** basılı tutun (ya da web panelini kullanın); sessiz durumu NVS hafızasına kaydedilir ve yeniden başlatınca hatırlanır.
 - Web panelindeki (`http://<cihaz-ip>`) **Ses & Melodi Stüdyosu** sekmesinden **buzzer ses seviyesini (`%1-%100`)** kısabilir, sesleri canlı test edebilir, **Aktif Buzzer - Ses Seviyesi Melodili** veya **Chiptune** modlarıyla sabit tonlu aktif buzzer'da bile yükselen/alçalan melodiler çalabilir, pasif buzzer moduna ve ters sinyal yönüne (`Active-LOW`) geçebilir, **7 bitiş melodisi** ve **5 hata melodisi** arasından seçim yapabilir ya da kendi özel melodinizi (`frekans:süre@ses%`, `@ses%:süre`, `0:sus`) tasarlayabilirsiniz.
 - Demo yazılımı (`pio run -e demo -t upload`), sahte yazıcıları bittikçe ve hata verdikçe sesleri çalar; bağlantınızı çevrimdışı denemenin kolay yolu budur.
@@ -343,12 +343,14 @@ python tools/fetch_access_codes.py --token --cloud       # --token olmadan: e-po
 | `MANUAL_TIMEOUT_MS` | 45000 | Düğmeye dokunulmazsa otomatik mod bu süre sonra devam eder |
 | `DONE_ALERT_MS` | 300000 | Biten iş bu süre boyunca `DONE` yanıp söner, sonra yazıcı sabit `IDLE` gösterir |
 | `SCREEN_SLEEP_MS` | 300000 | Hiçbir şey basılmıyorsa bu süre sonra ekran kapanır; 0 = hiç |
-| `AUTO_LISTEN_MS` | 3500 | Genel bakış modu: her yazıcıyı ne kadar dinlemeli |
+| `CLOUD_POLL_MS`, `CLOUD_FINISH_POLL_MS` | 300000, 60000 | Normal / bitişe yakın bulut kontrol aralığı |
+| `LAN_POLL_MS`, `LAN_FINISH_POLL_MS` | 30000, 10000 | Normal / bitişe yakın LAN kontrol aralığı |
+| `FINISH_SOON_MIN` | 10 | Sık kontrole geçilen tahmini kalan dakika |
+| `AUTO_LISTEN_MS` | 3500 | Sınırlı bir ziyarette durum alındıktan sonraki dinleme süresi |
 | `FIRST_REPORT_WAIT_MS` | 7000 | Bağlanıp sessiz kalan yazıcıdan vazgeçme süresi |
 | `CONNECT_TIMEOUT_S`, `HANDSHAKE_TIMEOUT_S` | 3, 8 | TCP ve TLS zaman aşımları |
 | `OFFLINE_RETRY_MS` | 60000 | Erişilemeyen yazıcı ya da reddedilen bilgi için yeniden deneme aralığı |
 | `FOCUS_RETRY_MS` | 8000 | O yazıcı ekrandayken yeniden deneme aralığı |
-| `FOCUS_SETTLE_MS` | 450 | Bağlanmadan önce düğmenin durmasını bekleme |
 | `PUSHALL_MIN_INTERVAL_MS` | 330000 | Yazıcı başına iki tam durum isteği arasındaki en kısa süre (5,5 dk) |
 | `WARMUP_CLOUD_WAIT_MS` | 8000 | Açılış taraması: bulut yazıcılarının rapor vermesi için bekleme süresi |
 | `HEARTBEAT_MS` | 10000 | Seri günlükteki durum satırının aralığı |
@@ -390,7 +392,7 @@ python tools/fetch_access_codes.py --token --cloud       # --token olmadan: e-po
 
 ### Neden aynı anda tek bağlantı
 
-Bir ESP32-C3'ün yaklaşık 300 KB RAM'i vardır. Bir TLS oturumu onlarca KB tutar, altı oturum sığmaz. Bunun yerine poller **tek** oturum tutar ve onu baktığınız yere taşır: otomatik modda ve gezinirken ekrandaki yazıcıya bağlı kalır (canlı güncelleme); geçiş yaklaşık 1,3 sn sürer, bu sürede son bilinen değerler gösterilir. Genel bakışta tek bir yazıcı olmadığından poller onları sırayla ziyaret eder. Tüm bulut yazıcılarına tek bir bulut oturumu hizmet eder.
+ESP32-C3 aynı anda **tek MQTT/TLS oturumu** tutar. Poller, ekran seçiminden bağımsız olarak süresi gelen yazıcıları ziyaret eder; en çok gecikeni önce seçer. Ziyaretler sınırlıdır, böylece elle tek yazıcıya odaklanmak diğerlerini aç bırakmaz. Ziyaretler arasında bağlantı açık tutulur; LAN ziyaretleri arasında mümkünse tüm uzak yazıcıları dinleyen ortak bulut oturumuna dönülür. Bu, karma LAN/bulut kurulumunda ek TLS bağlantıları gerektirir. Yalnızca LAN kullanılıyorsa son ziyaret edilen yazıcı bağlı kalır.
 
 ### Durum protokolü
 
@@ -401,14 +403,15 @@ Kullanılan alanlar (hepsi `print` altında): `gcode_state`, `mc_percent`, `mc_r
 ### Bilinmesi gerekenler
 
 - **Kısmi raporlar.** A1 gibi yazıcılar yalnızca *değişen* alanları gönderir. Yazılım bunları hatırlanan duruma ekler; ilk ziyarette ve sonra en çok **5,5 dakikada bir** tam durum ister (`pushall`): Bambu, yazıcı işlemcisi takılabileceği için daha sık istenmemesini öneriyor.
+- **Uyarlanabilir kontrol ve sınırları.** Son kalan-süre alanının kendi zaman damgası tutulur; sıcaklık mesajları bu saati yenilemez. Yalnızca çalışan baskılarda geçen süre düşülerek son 10 dakikaya girildiği hesaplanır; bu hesap baskıyı kendiliğinden bitmiş saymaz. Bulut kontrolü 5 dk → 1 dk, LAN kontrolü 30 sn → 10 sn olur. Bunlar ziyaret sonundan başlayan hedef aralıklardır; çok sayıda yazıcı, bağlantı/NTP zaman aşımı ve Wi-Fi kesintisi gecikme ekleyebilir. **Daha sık ziyaret, daha sık `pushall` değildir**: tam rapor alt sınırı 330 sn olarak korunur. Bağlantı kapalıyken kaçırılan tek seferlik FINISH değişikliği sonraki tam rapora kadar fark edilmeyebilir. Açık oturumdaki FINISH hemen ses/ekran uyarısını tetikler; tahmini süre sıfıra indi diye uyarı verilmez.
 - **Açılış taraması.** Karusel başlamadan önce her yazıcı bir kez okunur (LAN yazıcıları tek tek, sonra tüm bulut yazıcıları için tek bir bulut oturumu); altı yazıcı için yaklaşık on saniye sürer.
 - **Geçen süre bir tahmindir.** Yazıcılar kalan süreyi ve yüzdeyi bildirir, harcanan süreyi değil. Geçen süre, %1-99 arası için `kalan × yüzde / (100 − yüzde)` ile hesaplanır; yaklaşıktır ve cihaz açılmadan önce biten bir baskı için bilinmez.
 - **Bitiş saati.** `şimdi + kalan süre`; NTP ve `TIMEZONE` kullanılır.
-- **Yeniden deneme.** Erişilemeyen yazıcı her 60 sn'de (ekrandayken 8 sn'de) denenir. Reddedilen bilgiler en çok dakikada bir denenir; böyle bir yazıcıya bakmak denemeyi öne çekmez.
+- **Yeniden deneme.** Erişilemeyen yazıcı için 60 sn (deneme sonunda ekranda seçiliyse 8 sn) beklenir. Reddedilen bilgiler için en az 60 sn beklenir; ekran seçimi bu beklemeyi sıfırlamaz. Bağlantı kaybı çevrimdışı olarak kaydedilir.
 - **TLS.** Yazıcılar yerel ağda kendinden imzalı sertifika kullanır, olduğu gibi kabul edilir. Bulut sunucusunun sertifikası, anahtar gönderilmeden önce dahili Mozilla CA paketiyle doğrulanır.
 - **İş adları.** Gösterilen ad `subtask_name`'deki iş adıdır (yoksa `gcode_file`'daki dosya adı). Bambu Studio'dan gönderilen işler *proje* adını bildirir ve bu ad bir projenin her plakasında aynıdır; bu yüzden plaka numarası eklenir: `Organizer (plate 2)`.
 - **Dosya adları** ekran yazı tipi için ASCII'ye çevrilir: Türkçe harfler sadeleştirilir (ğ → g), desteklenmeyenler `?` olur.
-- **Bellek.** Bağlıyken yaklaşık 100 KB heap boş kalır (görülen en düşük: 84 KB); yazılım 3 MB'lık bölümde yaklaşık 1,3 MB'tır (OTA yok).
+- **Bellek.** 2026-10-21 tarihindeki 45 saniyelik C3 açılış kontrolünde yaklaşık 94 KB boş heap, en düşük yaklaşık 75 KB görüldü. Bu, uzun süreli sızıntı testi değildir. Yazılım 3 MB’lık bölümde yaklaşık 1,3 MB’tır (OTA yok).
 - **Ekran uykusu.** 5 dakika boyunca hiçbir yazıcı basmıyor, duraklamış, hazırlanıyor ya da hatalı değilse ekran kapanır; düğmeye dokunmak veya yeni bir etkinlik uyandırır.
 - **Açılış tanılaması.** Günlük, ekranın nerede yanıt verdiğini yazar (`[oled] found at 0x3C ...`); yapılandırılan pinlerde sessizse tüm diğer pin çiftlerini tarayıp nereye bağlı olduğunu söyler.
 
@@ -482,6 +485,17 @@ Yedek alır (`secrets.h.bak`), yazıcılarınızı tablo olarak yazdırır ve **
 - Havadan yazılım güncellemesi (OTA) yok (büyük bölüm OTA düzeninin yerini alır).
 - HMS uyarıları yalnızca sayılır, çözülmez; geçen süre bir tahmindir.
 - Fikirler: baskı bitince LED, Home Assistant / MQTT çıkışı, liste görünümlü daha büyük ekran, yazıcı başına eşikler.
+
+## Zamanlama regresyon testleri
+
+Ana bilgisayarda C++ derleyicisiyle çalıştırın (çıktı dosyasını depo dışında tutun):
+
+```powershell
+g++ -std=c++11 -Wall -Wextra -Werror tests/poll_schedule_test.cpp -o "$env:TEMP/bambu-poll-test.exe"
+& "$env:TEMP/bambu-poll-test.exe"
+```
+
+Testler; normal/sık kontrol aralıklarını, veri gelmeden bitişe yaklaşmayı, bilinmeyen/duraklatılmış süreyi, odak kaynaklı aç bırakmayı, kimlik doğrulama beklemesini ve `millis()` taşmasını kapsar. Donanımda gerçek FINISH bildirimi ayrıca denenmelidir.
 
 ## Katkı
 

@@ -14,6 +14,7 @@ struct PrinterStatus {
   Phase phase = Phase::Unknown;
   int8_t percent = -1;        // 0..100, -1 unknown
   int32_t remainingMin = -1;  // mc_remaining_time, -1 unknown
+  uint32_t remainingAtMs = 0; // timestamp of that field, not of unrelated temperature reports
   int32_t elapsedMin = -1;    // derived from percent + remaining, kept after the print ends
   int16_t layer = -1;
   int16_t totalLayers = -1;

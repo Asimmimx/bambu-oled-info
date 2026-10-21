@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <Wire.h>
 #include <time.h>
+#include <atomic>
 #include "Buzzer.h"
 #include "Config.h"
 #include "Poller.h"
@@ -53,7 +54,7 @@ uint32_t g_lastFrame = 0;
 uint32_t g_frame = 0;
 char g_toast[24] = "";
 uint32_t g_toastUntil = 0;
-volatile int g_alertJump = -1;
+std::atomic<int> g_alertJump{-1};
 
 int printerCount() { return (int)config::printerCount(); }
 
@@ -64,8 +65,7 @@ void showToast(const char* text) {
   g_toastUntil = millis() + 3000;
 }
 
-// Tells the poller which printer to stay connected to. The overview shows every printer at once,
-// so there the poller is left free to visit them all in turn.
+// Display selection is a scheduling hint; background checks continue for every printer.
 void applyFocus() {
   if (following() && g_view == View::Overview) poller::focus(-1);
   else poller::focus(g_sel);
@@ -566,9 +566,8 @@ void render() {
   const uint32_t carouselMs = (uint32_t)constrain((int)ds.carouselSec, 2, 600) * 1000UL;
   const uint32_t sleepMs = (uint32_t)ds.screenSleepSec * 1000UL;
 
-  const int jump = g_alertJump;
+  const int jump = g_alertJump.exchange(-1);
   if (jump >= 0) {
-    g_alertJump = -1;
     g_lastActive = now;
     g_forcedSleep = false;
     setSleeping(false);

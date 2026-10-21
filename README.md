@@ -49,7 +49,7 @@ Other models should work in principle, because the status protocol is the same, 
 ## Features
 
 - **Six printers on one 128x32 screen**, shown one at a time (10 s each) or all together (overview).
-- **Live updates** for the printer on screen; the last known state of the others is remembered.
+- **Display-independent monitoring**: cloud checks every 5 min, every 1 min in the last 10 estimated minutes; LAN checks every 30 s / 10 s. Changes on the open MQTT session are processed immediately.
 - Works with printers that send **partial** status (A1 family) as well as full status.
 - **Finish clock** ("done at 17:42"), from the printer's remaining time and NTP.
 - **Cloud mode** for printers on another network, with a verified TLS connection.
@@ -208,7 +208,7 @@ If your buzzer can only play a single note, it is an **active** one. That is the
 | Print finished | beep, beep, long beep | rising notes (C6, E6, G6) |
 | Print failed or an error code appears | four beeps | four alternating notes, high and low |
 
-- Only changes seen **live** are announced: a printer that was already finished or failed when the device started stays quiet, and "finished" means the printer was printing, paused or preparing before. In auto mode every printer is visited about once a minute, so an alert for a printer that is not on screen can arrive up to about a minute late.
+- Only state changes observed while monitoring trigger alerts; jobs already finished at startup stay quiet. OLED selection and carousel settings cannot suspend other printers. Check intervals are not an alert latency guarantee; see the partial-report limitation below.
 - Hold the knob button for **2.5 seconds** (or use the web panel) to turn the sound off or on; the mute state is saved in NVS and remembered after a restart.
 - From the **Sound & Melody Studio** tab in the web panel (`http://<device-ip>`), you can adjust the **buzzer volume (`1-100%`)**, test sounds live, select **Active Buzzer - Volume-Stepped Melody** or **Chiptune Modulation** (so an active buzzer plays dynamic multi-level melodies instead of flat beeps) or **Passive Buzzer** mode, invert polarity (`Active-LOW`), choose from **7 finish melodies** and **5 error melodies**, or compose your own custom melody (`freq:ms@vol%`, `@vol%:ms`, `0:pause`).
 - The demo build (`pio run -e demo -t upload`) plays the sounds as its fake printers finish and fail, which is an easy way to try your wiring offline.
@@ -343,12 +343,14 @@ python tools/fetch_access_codes.py --token --cloud       # or without --token to
 | `MANUAL_TIMEOUT_MS` | 45000 | Auto mode resumes after this long without touching the knob |
 | `DONE_ALERT_MS` | 300000 | A finished job flashes `DONE` this long, then the printer shows a steady `IDLE` |
 | `SCREEN_SLEEP_MS` | 300000 | Screen off after this long with nothing printing; 0 = never |
-| `AUTO_LISTEN_MS` | 3500 | Overview mode: how long to listen to each printer |
+| `CLOUD_POLL_MS`, `CLOUD_FINISH_POLL_MS` | 300000, 60000 | Normal / near-finish cloud check intervals |
+| `LAN_POLL_MS`, `LAN_FINISH_POLL_MS` | 30000, 10000 | Normal / near-finish LAN check intervals |
+| `FINISH_SOON_MIN` | 10 | Estimated minutes remaining to enter fast checks |
+| `AUTO_LISTEN_MS` | 3500 | Bounded visit: listening time after a status report |
 | `FIRST_REPORT_WAIT_MS` | 7000 | Give up on a printer that connects but stays silent |
 | `CONNECT_TIMEOUT_S`, `HANDSHAKE_TIMEOUT_S` | 3, 8 | TCP and TLS timeouts |
 | `OFFLINE_RETRY_MS` | 60000 | Retry interval for an unreachable printer or rejected credentials |
 | `FOCUS_RETRY_MS` | 8000 | Retry interval while that printer is on screen |
-| `FOCUS_SETTLE_MS` | 450 | Wait for the knob to stop before connecting |
 | `PUSHALL_MIN_INTERVAL_MS` | 330000 | Minimum time between full-status requests per printer (5.5 min) |
 | `WARMUP_CLOUD_WAIT_MS` | 8000 | Power-up sweep: how long to wait for the cloud printers to report |
 | `HEARTBEAT_MS` | 10000 | Interval of the status line in the serial log |
@@ -390,7 +392,7 @@ Two tasks share a small, mutex-protected table with the last known status of eve
 
 ### Why one connection at a time
 
-An ESP32-C3 has about 300 KB of RAM. A TLS session costs tens of KB, so six sessions do not fit. Instead the poller keeps **one** session and moves it where you are looking: in auto mode and while you browse it stays connected to the printer on screen (live updates); switching costs about 1.3 s, during which the last known values are shown. The overview has no single printer, so there the poller visits them in turn. All cloud printers are served by one cloud session.
+The ESP32-C3 keeps **one MQTT/TLS session** at a time. The poller visits due printers independently of display selection, choosing the most overdue first. Visits are bounded, so manually focusing one printer cannot starve the others. Connections remain open between checks; after LAN visits the poller returns to the shared cloud session when available, receiving reports for all remote printers. This requires extra TLS connections in mixed LAN/cloud setups. With LAN-only configurations the last visited printer stays connected.
 
 ### The status protocol
 
@@ -401,14 +403,15 @@ The fields used (all under `print`): `gcode_state`, `mc_percent`, `mc_remaining_
 ### Details worth knowing
 
 - **Partial reports.** Printers like the A1 only send fields that *changed*. The firmware merges them into the remembered state, and asks for a full picture (`pushall`) on the first visit and then at most every **5.5 minutes**: Bambu advises against asking more often because the printer's CPU can lag.
+- **Adaptive checks and limits.** Remaining time has its own timestamp, unaffected by temperature messages. Only running jobs count down into the final 10 estimated minutes; this estimate never declares a print finished. Cloud checks change from 5 min to 1 min, LAN from 30 s to 10 s. These target intervals start at visit completion; multiple printers, connection/NTP timeouts and Wi-Fi outages can add delay. **More frequent visits do not mean more frequent `pushall`**: its 330 s minimum is preserved. A one-off FINISH delta missed while disconnected may remain unknown until the next full report. FINISH on the open session triggers sound/display alerts immediately; an estimated zero remaining time cannot trigger an alert.
 - **Power-up sweep.** Before the carousel starts, every printer is read once (LAN printers one by one, then one cloud session for all cloud printers), which takes about ten seconds for six printers.
 - **Time elapsed is an estimate.** Printers report the time *left* and the percentage, not the time already spent. Elapsed time is `left × percent / (100 − percent)` for 1-99 %, so it is approximate, and unknown for a print that finished before the device started.
 - **Finish clock.** `now + time left`, using NTP and your `TIMEZONE`.
-- **Back-off.** An unreachable printer is retried every 60 s (8 s while it is on screen). Rejected credentials are retried at most once a minute, and looking at such a printer does not bring the retry forward.
+- **Back-off.** Unreachable printers wait 60 s (8 s if selected when the attempt ends). Rejected credentials wait at least 60 s; display selection cannot reset the cooldown. A lost connection is recorded as offline.
 - **TLS.** Printers use self-signed certificates on your LAN, which are accepted as they are. The cloud server's certificate is checked against the built-in Mozilla CA bundle before the token is sent.
 - **Job names.** The name is the job name from `subtask_name` (or the file name from `gcode_file`). Jobs sent from Bambu Studio report the *project* name, which is the same for every plate of one project, so the plate number is added: `Organizer (plate 2)`.
 - **File names** are converted to ASCII for the display font: Turkish letters are folded (ğ → g) and anything unsupported becomes `?`.
-- **Memory.** About 100 KB of heap stays free while connected (minimum seen: 84 KB); the firmware is about 1.3 MB in a 3 MB partition (no OTA).
+- **Memory.** The 45-second C3 startup check on 2026-10-21 reported about 94 KB free heap, with a minimum near 75 KB. This is a startup observation, not a long-run leak test. The firmware is about 1.3 MB in a 3 MB partition (no OTA).
 - **Screen sleep.** If no printer is printing, paused, preparing or in error for 5 minutes, the screen turns off; a knob touch or new activity wakes it.
 - **Boot diagnostics.** The log says where the display answered (`[oled] found at 0x3C ...`) and, if it is silent on the configured pins, scans all other pin pairs to tell you where it is wired.
 
@@ -482,6 +485,17 @@ It makes a backup (`secrets.h.bak`), prints a table of your printers, and **neve
 - No over-the-air firmware updates (the large partition replaces the OTA layout).
 - HMS notices are only counted, not decoded; the elapsed time is an estimate.
 - Ideas: an LED when a print finishes, Home Assistant / MQTT output, a bigger display with a list view, per-printer thresholds.
+
+## Polling regression tests
+
+Run with a host C++ compiler (keep the executable outside the repository):
+
+```powershell
+g++ -std=c++11 -Wall -Wextra -Werror tests/poll_schedule_test.cpp -o "$env:TEMP/bambu-poll-test.exe"
+& "$env:TEMP/bambu-poll-test.exe"
+```
+
+Tests cover normal/fast intervals, approaching completion without new reports, unknown/paused time, focus starvation, authentication cooldown and `millis()` rollover. Actual FINISH delivery still needs a printer completion test on hardware.
 
 ## Contributing
 

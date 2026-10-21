@@ -87,15 +87,19 @@
 #define CAROUSEL_MS           10000
 
 // ---- Polling behaviour -----------------------------------------------------------------
-// While a printer is on screen the poller stays connected to it (live updates). The overview
-// screen has no single printer, so the poller visits them all in turn instead:
+// Background checks are independent of the OLED selection. One TLS session is kept alive
+// between checks so incoming changes can trigger alerts immediately.
+#define CLOUD_POLL_MS         300000 // normal cloud check: 5 minutes
+#define CLOUD_FINISH_POLL_MS  60000  // cloud check near the estimated finish: 1 minute
+#define LAN_POLL_MS           30000  // LAN checks can be cheaper and more frequent
+#define LAN_FINISH_POLL_MS    10000
+#define FINISH_SOON_MIN       10     // enter fast checks within the last 10 estimated minutes
 #define AUTO_LISTEN_MS        3500   // keep listening this long after the first full report
 #define FIRST_REPORT_WAIT_MS  7000   // give up on a printer that connects but stays silent
 #define CONNECT_TIMEOUT_S     3      // TCP connect timeout (powered-off printers)
 #define HANDSHAKE_TIMEOUT_S   8      // TLS handshake timeout
 #define OFFLINE_RETRY_MS      60000  // how often an unreachable printer is retried
 #define FOCUS_RETRY_MS        8000   // ... while you are looking at it
-#define FOCUS_SETTLE_MS       450    // wait for the knob to stop before connecting
 // Bambu's own advice: do not send "pushall" more often than every 5 minutes (P1/A1 CPUs lag).
 #define PUSHALL_MIN_INTERVAL_MS 330000
 

@@ -5,6 +5,8 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
+#include <atomic>
+#include "PollSchedule.h"
 #include "Buzzer.h"
 #include "Config.h"
 #include "State.h"
@@ -14,17 +16,20 @@
 
 namespace {
 
-volatile int g_focus = -1;
-volatile uint32_t g_focusSetMs = 0;
+std::atomic<int> g_focus{-1};
 volatile int g_visiting = -1;
 
-uint32_t g_retryAt[MAX_PRINTERS] = {};
+uint32_t g_lastVisit[MAX_PRINTERS] = {};
+uint32_t g_retryDelay[MAX_PRINTERS] = {};
+bool g_visited[MAX_PRINTERS] = {};
 uint32_t g_lastPushall[MAX_PRINTERS] = {};
+bool g_pushed[MAX_PRINTERS] = {};
 
 PubSubClient g_mqtt;
 JsonDocument g_filter;
 WiFiClientSecure* g_tls = nullptr;  // transport of the current MQTT session, if any
 bool g_cloudUp = false;             // the session is the Bambu Cloud one, shared by all cloud printers
+int g_localIdx = -1;                // owner of a retained LAN session
 volatile bool g_gotFull[MAX_PRINTERS] = {};  // a report with gcode_state arrived during this visit
 uint32_t g_maxPayload = 0;
 volatile bool g_warm = true;  // the initial sweep over all printers is still running
@@ -167,11 +172,17 @@ void applyReport(int idx, JsonObjectConst p) {
   if (p["gcode_state"].is<const char*>()) {
     const Phase old = s.phase;
     s.phase = parsePhase(p["gcode_state"].as<const char*>());
-    if (s.phase == Phase::Running && old != Phase::Running && old != Phase::Paused) s.elapsedMin = -1;
+    if (s.phase == Phase::Running && old != Phase::Running && old != Phase::Paused) {
+      s.elapsedMin = -1;
+      s.remainingMin = -1; // do not reuse the previous job's ETA before the new field arrives
+    }
     g_gotFull[idx] = true;
   }
   if (p["mc_percent"].is<int>()) s.percent = (int8_t)constrain(p["mc_percent"].as<int>(), 0, 100);
-  if (p["mc_remaining_time"].is<int>()) s.remainingMin = p["mc_remaining_time"].as<int>();
+  if (p["mc_remaining_time"].is<int>()) {
+    s.remainingMin = p["mc_remaining_time"].as<int>();
+    s.remainingAtMs = millis();
+  }
   if (p["layer_num"].is<int>()) s.layer = p["layer_num"].as<int>();
   if (p["total_layer_num"].is<int>()) s.totalLayers = p["total_layer_num"].as<int>();
   if (p["nozzle_temper"].is<float>()) s.nozzle = p["nozzle_temper"].as<float>();
@@ -354,6 +365,7 @@ void closeSession() {
     g_tls = nullptr;
   }
   g_cloudUp = false;
+  g_localIdx = -1;
 }
 
 // Opens an MQTT-over-TLS session. A printer on the LAN has a self-signed certificate, which is
@@ -364,7 +376,8 @@ Visit openSession(const char* host, const char* user, const char* pass, bool ver
   g_tls = new WiFiClientSecure();
   if (verify) g_tls->useBuiltinCACertBundle();
   else g_tls->setInsecure();
-  g_tls->setTimeout(CONNECT_TIMEOUT_S);
+  g_tls->setTimeout(CONNECT_TIMEOUT_S * 1000UL); // Arduino Stream uses milliseconds
+  g_tls->setConnectionTimeout(CONNECT_TIMEOUT_S * 1000UL); // actual TCP/TLS socket timeout
   g_tls->setHandshakeTimeout(HANDSHAKE_TIMEOUT_S);
   g_mqtt.setClient(*g_tls);
   g_mqtt.setServer(host, 8883);
@@ -393,19 +406,20 @@ Visit openSession(const char* host, const char* user, const char* pass, bool ver
 bool requestFullIfDue(int idx) {
   const PrinterConfig& pc = config::printer(idx);
   const uint32_t now = millis();
-  if (g_lastPushall[idx] != 0 && now - g_lastPushall[idx] <= PUSHALL_MIN_INTERVAL_MS) return false;
+  if (g_pushed[idx] && !pollSchedule::due(now, g_lastPushall[idx], PUSHALL_MIN_INTERVAL_MS)) return false;
   char requestTopic[64];
   snprintf(requestTopic, sizeof requestTopic, "device/%s/request", pc.serial);
-  g_lastPushall[idx] = now ? now : 1;
-  g_mqtt.publish(requestTopic, kPushall);
+  if (!g_mqtt.publish(requestTopic, kPushall)) return false;
+  g_lastPushall[idx] = now;
+  g_pushed[idx] = true;
   Serial.printf("[%s] pushall sent\n", pc.name);
   return true;
 }
 
-void subscribePrinter(int idx) {
+bool subscribePrinter(int idx) {
   char reportTopic[64];
   snprintf(reportTopic, sizeof reportTopic, "device/%s/report", config::printer(idx).serial);
-  g_mqtt.subscribe(reportTopic);
+  return g_mqtt.subscribe(reportTopic);
 }
 
 void logSummary(int idx) {
@@ -419,49 +433,48 @@ void logSummary(int idx) {
                 s.speedLevel, s.speedPct, s.partFanPct, s.stage, s.nozzleDia, s.trayNow, s.filament(), s.hmsCount);
 }
 
-// A printer on the LAN. In manual focus mode it stays connected until the focus moves elsewhere.
+// A bounded LAN visit cannot starve printers that are not selected on the OLED.
+// Retain the transport until another broker is due, receiving live changes in the meantime.
 Visit visitLocal(int idx) {
   const PrinterConfig& pc = config::printer(idx);
   g_visiting = idx;
   g_gotFull[idx] = false;
-  {
-    state::Guard guard;
-    state::raw(idx).link = Link::Connecting;
+  if (g_localIdx != idx || !g_mqtt.connected()) {
+    {
+      state::Guard guard;
+      state::raw(idx).link = Link::Connecting;
+    }
+    const Visit r = openSession(pc.ip, "bblp", pc.accessCode, false, pc.name);
+    if (r != Visit::Ok) return r;
+    g_localIdx = idx;
+    if (!subscribePrinter(idx)) {
+      closeSession();
+      return Visit::Offline;
+    }
   }
-
-  const Visit r = openSession(pc.ip, "bblp", pc.accessCode, false, pc.name);
-  if (r != Visit::Ok) return r;
-
-  subscribePrinter(idx);
   const bool expectFull = requestFullIfDue(idx) || !state::get(idx).hasData();
-
-  // Without a pushall an idle A1/P1 may legitimately stay silent: then only listen briefly for
-  // changes instead of waiting for a full report that is not coming.
   const uint32_t started = millis();
-  uint32_t fullAt = expectFull ? 0 : started;
+  uint32_t fullAt = started;
+  bool ready = !expectFull;
   while (g_mqtt.connected()) {
-    g_mqtt.loop();
+    if (!g_mqtt.loop()) break;
+    if (g_gotFull[idx] && !ready) {
+      ready = true;
+      fullAt = millis();
+    }
+    const uint32_t now = millis();
+    if (g_warm && ready) break;
+    if (ready && pollSchedule::due(now, fullAt, AUTO_LISTEN_MS)) break;
+    if (pollSchedule::due(now, started, FIRST_REPORT_WAIT_MS)) break;
     vTaskDelay(pdMS_TO_TICKS(5));
-
-    const uint32_t t = millis();
-    if (g_gotFull[idx] && !fullAt) fullAt = t;
-    if (g_warm) {  // initial sweep: leave as soon as the state is known
-      if (fullAt || t - started > FIRST_REPORT_WAIT_MS) break;
-      continue;
-    }
-    const int focus = g_focus;
-    if (focus >= 0) {
-      if (focus != idx) break;  // the knob moved on
-    } else {
-      if (fullAt && t - fullAt > AUTO_LISTEN_MS) break;
-      if (!fullAt && t - started > FIRST_REPORT_WAIT_MS) break;
-    }
   }
-
   logSummary(idx);
-  if (!g_gotFull[idx] && expectFull) Serial.printf("[%s] connected but no full report received\n", pc.name);
-  closeSession();
-  // Reachable counts as online even when silent; the UI shows "waiting for data" until a report lands.
+  if (!g_mqtt.connected()) {
+    closeSession();
+    return Visit::Offline;
+  }
+  if (!g_gotFull[idx] && expectFull)
+    Serial.printf("[%s] connected but no full report received\n", pc.name);
   return Visit::Ok;
 }
 
@@ -498,51 +511,46 @@ Visit visitCloud(int idx) {
     for (int i = 0; i < n; i++) {
       if (!config::isCloud(i)) continue;
       g_gotFull[i] = false;
-      subscribePrinter(i);
+      if (!subscribePrinter(i)) {
+        closeSession();
+        return Visit::Offline;
+      }
       const bool asked = requestFullIfDue(i);
       if (i == idx && asked) expectFull = true;
     }
-  } else if (requestFullIfDue(idx)) {
-    expectFull = true;
+  } else {
+    for (int i = 0; i < n; i++) {
+      if (config::isCloud(i)) {
+        const bool asked = requestFullIfDue(i);
+        if (i == idx && asked) expectFull = true;
+      }
+    }
   }
 
   const uint32_t started = millis();
-  uint32_t fullAt = expectFull ? 0 : started;
-  // In the carousel-free overview mode there is nothing to wait for once the session is up
-  const bool quick = resumed && g_focus < 0 && !expectFull;
-  bool keep = true;  // keep the session for the next cloud printer
+  uint32_t fullAt = started;
+  bool ready = !expectFull;
   bool lost = false;
   for (;;) {
-    if (!g_mqtt.connected()) {
+    if (!g_mqtt.connected() || !g_mqtt.loop()) {
       lost = true;
       break;
     }
-    g_mqtt.loop();
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    const uint32_t t = millis();
-    if (g_gotFull[idx] && !fullAt) fullAt = t;
-    if (g_warm) {  // initial sweep: done once every cloud printer has reported, or the wait runs out
+    const uint32_t now = millis();
+    if (g_gotFull[idx] && !ready) {
+      ready = true;
+      fullAt = now;
+    }
+    if (g_warm) {
       bool all = true;
       for (int i = 0; i < n; i++)
         if (config::isCloud(i) && !g_gotFull[i]) all = false;
-      if (all || t - started > WARMUP_CLOUD_WAIT_MS) break;
-      continue;
-    }
-    if (quick) {
-      if (t - started > 200) break;
-      continue;
-    }
-    const int focus = g_focus;
-    if (focus >= 0) {
-      if (focus != idx) {
-        keep = config::isCloud(focus);  // another cloud printer is served by the same session
-        break;
-      }
+      if (all || pollSchedule::due(now, started, WARMUP_CLOUD_WAIT_MS)) break;
     } else {
-      if (fullAt && t - fullAt > AUTO_LISTEN_MS) break;
-      if (!fullAt && t - started > FIRST_REPORT_WAIT_MS) break;
+      if (ready && pollSchedule::due(now, fullAt, AUTO_LISTEN_MS)) break;
+      if (pollSchedule::due(now, started, FIRST_REPORT_WAIT_MS)) break;
     }
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 
   if (lost) {
@@ -553,34 +561,44 @@ Visit visitCloud(int idx) {
   if (g_warm) {
     for (int i = 0; i < n; i++)
       if (config::isCloud(i)) logSummary(i);
-  } else if (!quick) {
+  } else {
     logSummary(idx);
   }
-  if (!keep) closeSession();
   return Visit::Ok;
 }
 
 Visit visit(int idx) { return config::isCloud(idx) ? visitCloud(idx) : visitLocal(idx); }
 
-// The next printer to talk to, or -1 if nobody is due yet.
+uint32_t checkInterval(int idx, uint32_t now) {
+  const PrinterStatus s = state::get(idx);
+  const bool near = pollSchedule::nearFinish(s.phase == Phase::Running, s.remainingMin,
+                                            s.remainingAtMs, now, FINISH_SOON_MIN);
+  return pollSchedule::interval(config::isCloud(idx), near, CLOUD_POLL_MS, CLOUD_FINISH_POLL_MS,
+                                 LAN_POLL_MS, LAN_FINISH_POLL_MS);
+}
+
+// Round robin among due printers: display focus is only a tie breaker, never a monopoly.
 int pickNext(int last) {
   const uint32_t now = millis();
   const int n = (int)config::printerCount();
-  if (n <= 0) return -1;
-  const int focus = g_focus;
-  if (focus >= 0 && focus < n) {
-    if (now - g_focusSetMs < FOCUS_SETTLE_MS) return -1;  // let the knob settle
-    return now >= g_retryAt[focus] ? focus : -1;
-  }
+  pollSchedule::Next next;
   for (int k = 1; k <= n; k++) {
     const int i = (last + k) % n;
-    if (now >= g_retryAt[i]) return i;
+    const uint32_t interval = g_retryDelay[i] ? g_retryDelay[i] : checkInterval(i, now);
+    next.consider(i, g_visited[i], now, g_lastVisit[i], interval, g_focus.load());
   }
-  return -1;
+  // Park on the shared cloud broker between LAN visits, covering all remote printers live.
+  if (next.index < 0 && !g_cloudUp) {
+    for (int k = 1; k <= n; k++) {
+      const int i = (last + k) % n;
+      if (config::isCloud(i) &&
+          (!g_retryDelay[i] || pollSchedule::due(now, g_lastVisit[i], g_retryDelay[i]))) return i;
+    }
+  }
+  return next.index;
 }
 
-// Records the outcome of a visit. A cloud result applies to every cloud printer, a local one to that
-// printer only.
+// A cloud session serves the whole cloud group. Backoff starts at the end of an attempt.
 void settle(int idx, Visit r) {
   const int n = (int)config::printerCount();
   const bool cloud = config::isCloud(idx);
@@ -590,12 +608,13 @@ void settle(int idx, Visit r) {
     {
       state::Guard guard;
       PrinterStatus& s = state::raw(i);
-      if (r == Visit::Ok) s.link = Link::Online;
-      else s.link = (r == Visit::AuthFailed) ? Link::AuthFailed : Link::Offline;
+      s.link = r == Visit::Ok ? Link::Online : r == Visit::AuthFailed ? Link::AuthFailed : Link::Offline;
     }
-    if (r == Visit::Ok) g_retryAt[i] = 0;
-    else if (r == Visit::AuthFailed) g_retryAt[i] = now + OFFLINE_RETRY_MS;  // wrong code: do not hammer
-    else g_retryAt[i] = now + (g_focus == idx ? FOCUS_RETRY_MS : OFFLINE_RETRY_MS);
+    g_lastVisit[i] = now;
+    g_visited[i] = true;
+    g_retryDelay[i] = r == Visit::Ok ? 0 :
+        r == Visit::AuthFailed ? OFFLINE_RETRY_MS :
+        g_focus.load() == i ? FOCUS_RETRY_MS : OFFLINE_RETRY_MS;
   }
 }
 
@@ -618,7 +637,6 @@ void warmup() {
     settle(firstCloud, visit(firstCloud));
     g_warmDone = g_warmDone + cloudCount;
   }
-  closeSession();
   g_warm = false;
   Serial.println("[warmup] done");
 }
@@ -645,7 +663,20 @@ void task(void*) {
     const int idx = pickNext(last);
     if (idx < 0) {
       // keep a held-open cloud session alive (pings, incoming reports) while there is nothing to visit
-      if (g_tls && g_mqtt.connected()) g_mqtt.loop();
+      if (g_tls && (!g_mqtt.connected() || !g_mqtt.loop())) {
+        const int owner = g_cloudUp ? g_visiting : g_localIdx;
+        closeSession();
+        if (owner >= 0) settle(owner, Visit::Offline);
+      } else if (g_tls) {
+        // Full-report recovery has its own timer; a 5-minute cloud check must not
+        // round the 5.5-minute pushall interval up to 10 minutes on a held session.
+        if (g_cloudUp) {
+          for (int i = 0; i < (int)config::printerCount(); i++)
+            if (config::isCloud(i)) requestFullIfDue(i);
+        } else if (g_localIdx >= 0) {
+          requestFullIfDue(g_localIdx);
+        }
+      }
       vTaskDelay(pdMS_TO_TICKS(20));
       continue;
     }
@@ -730,11 +761,7 @@ void begin() {
 }
 
 void focus(int idx) {
-  g_focus = idx;
-  g_focusSetMs = millis();
-  // Looking at an unreachable printer earns it a fresh attempt, except after a wrong access code:
-  // retrying that only locks the printer's patience, it never starts working by itself.
-  if (idx >= 0 && state::get(idx).link != Link::AuthFailed) g_retryAt[idx] = 0;
+  g_focus.store(idx >= 0 && idx < (int)config::printerCount() ? idx : -1);
 }
 
 int visiting() { return g_visiting; }
